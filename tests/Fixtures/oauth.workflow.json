@@ -1,0 +1,38 @@
+{
+  "id": "/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/rg-source-sentinel/providers/Microsoft.Logic/workflows/la-oauth",
+  "name": "la-oauth",
+  "type": "Microsoft.Logic/workflows",
+  "location": "uksouth",
+  "properties": {
+    "parameters": {
+      "$connections": {
+        "value": {
+          "office365": {
+            "id": "/subscriptions/22222222-2222-2222-2222-222222222222/providers/Microsoft.Web/locations/uksouth/managedApis/office365",
+            "connectionId": "/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/rg-source-sentinel/providers/Microsoft.Web/connections/office365",
+            "connectionName": "office365"
+          }
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "parameters": { "$connections": { "type": "Object", "defaultValue": {} } },
+      "triggers": {
+        "manual": { "type": "Request", "kind": "Http", "inputs": { "schema": {} } }
+      },
+      "actions": {
+        "Send_mail": {
+          "type": "ApiConnection",
+          "inputs": {
+            "host": { "connection": { "name": "@parameters('$connections')['office365']['connectionId']" } },
+            "method": "post",
+            "path": "/sendMail"
+          },
+          "runAfter": {}
+        }
+      },
+      "outputs": {}
+    }
+  }
+}

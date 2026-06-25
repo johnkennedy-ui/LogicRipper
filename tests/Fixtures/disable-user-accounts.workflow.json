@@ -1,0 +1,91 @@
+{
+  "id": "/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/rg-source-sentinel/providers/Microsoft.Logic/workflows/la-disable-users-source",
+  "name": "la-disable-users-source",
+  "type": "Microsoft.Logic/workflows",
+  "location": "uksouth",
+  "identity": {
+    "type": "UserAssigned",
+    "userAssignedIdentities": {
+      "/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/rg-source-sentinel/providers/Microsoft.ManagedIdentity/userAssignedIdentities/uami-source-soar": {
+        "clientId": "44444444-4444-4444-4444-444444444444",
+        "principalId": "55555555-5555-5555-5555-555555555555"
+      }
+    }
+  },
+  "tags": { "Owner": "SOC" },
+  "properties": {
+    "state": "Enabled",
+    "parameters": {
+      "$connections": {
+        "value": {
+          "azuresentinel": {
+            "id": "/subscriptions/22222222-2222-2222-2222-222222222222/providers/Microsoft.Web/locations/uksouth/managedApis/azuresentinel",
+            "connectionId": "/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/rg-source-sentinel/providers/Microsoft.Web/connections/azuresentinel-mi",
+            "connectionName": "azuresentinel-mi"
+          },
+          "keyvault": {
+            "id": "/subscriptions/22222222-2222-2222-2222-222222222222/providers/Microsoft.Web/locations/uksouth/managedApis/keyvault",
+            "connectionId": "/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/rg-source-sentinel/providers/Microsoft.Web/connections/keyvault-mi",
+            "connectionName": "keyvault-mi"
+          }
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": { "type": "Object", "defaultValue": {} },
+        "notificationAddress": { "type": "String", "defaultValue": "soc@source.example" }
+      },
+      "triggers": {
+        "Microsoft_Sentinel_incident": {
+          "type": "ApiConnectionWebhook",
+          "inputs": {
+            "host": { "connection": { "name": "@parameters('$connections')['azuresentinel']['connectionId']" } },
+            "body": {
+              "callback_url": "@{listCallbackUrl()}",
+              "workspaceId": "/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/rg-source-sentinel/providers/Microsoft.OperationalInsights/workspaces/law-source"
+            },
+            "path": "/incident"
+          }
+        }
+      },
+      "actions": {
+        "Get_secret_reference": {
+          "type": "ApiConnection",
+          "inputs": {
+            "host": { "connection": { "name": "@parameters('$connections')['keyvault']['connectionId']" } },
+            "method": "get",
+            "path": "/secrets/graph-client",
+            "queries": { "keyVaultName": "kv-source-soar" }
+          },
+          "runAfter": {}
+        },
+        "Disable_user_in_Graph": {
+          "type": "Http",
+          "inputs": {
+            "method": "PATCH",
+            "uri": "https://graph.microsoft.com/v1.0/users/@{triggerBody()?['entities']?[0]?['aadUserId']}",
+            "authentication": {
+              "type": "ManagedServiceIdentity",
+              "audience": "https://graph.microsoft.com"
+            },
+            "body": { "accountEnabled": false }
+          },
+          "runAfter": { "Get_secret_reference": [ "Succeeded" ] }
+        },
+        "Add_incident_comment": {
+          "type": "ApiConnection",
+          "inputs": {
+            "host": { "connection": { "name": "@parameters('$connections')['azuresentinel']['connectionId']" } },
+            "method": "post",
+            "path": "/incidents/@{triggerBody()?['object']?['properties']?['incidentNumber']}/comments"
+          },
+          "runAfter": { "Disable_user_in_Graph": [ "Succeeded" ] }
+        }
+      },
+      "outputs": {}
+    }
+  }
+}
