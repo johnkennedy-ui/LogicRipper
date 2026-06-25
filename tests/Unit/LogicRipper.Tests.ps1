@@ -15,7 +15,7 @@ Describe 'Logic Ripper local code-view transformer' {
         @($analysis.findings).Count | Should -BeGreaterThan 0
         $analysis.status | Should -Be 'Needs review'
         $analysis.findings.kind | Should -Contain 'email'
-        $analysis.findings.kind | Should -Contain 'url'
+        $analysis.findings.kind | Should -Contain 'azureResourceId'
     }
 
     It 'blocks template save until every finding is reviewed' {
@@ -33,13 +33,16 @@ Describe 'Logic Ripper local code-view transformer' {
         (Get-LogicRipperTemplate -TemplateId $template.TemplateId -BasePath $Base).name | Should -Be 'Disable User Accounts'
     }
 
-    It 'blocks saving when a secret is marked do not export' {
+    It 'saves secret decisions but blocks generation until the value is removed or replaced safely' {
         $secretCodeView = (Get-Content -Raw "$PSScriptRoot\..\Fixtures\secret.workflow.json" | ConvertFrom-Json).properties.definition | ConvertTo-Json -Depth 100
         $analysis = Invoke-LogicRipperAnalysis -CodeViewJson $secretCodeView
         foreach ($f in $analysis.findings) {
             Set-LogicRipperFindingDecision -Analysis $analysis -FindingId $f.id -Decision secret | Out-Null
         }
-        { Save-LogicRipperTemplate -Name 'Secret Template' -Analysis $analysis -BasePath $Base } | Should -Throw -ExpectedMessage '*secret*'
+        $template = Save-LogicRipperTemplate -Name 'Secret Template' -Analysis $analysis -BasePath $Base
+        $workspace = New-LogicRipperTargetWorkspace -BasePath $Base -DisplayName 'Contoso Production' -Values @{}
+        $binding = New-LogicRipperBinding -BasePath $Base -TemplateId $template.TemplateId -ProfileId $workspace.ProfileId -Values @{}
+        { New-LogicRipperCodeView -BasePath $Base -TemplateId $template.TemplateId -ProfileId $workspace.ProfileId -BindingId $binding.BindingId } | Should -Throw -ExpectedMessage '*secret*'
     }
 
     It 'saves workspace values without raw secrets' {
@@ -104,5 +107,80 @@ Describe 'Logic Ripper local code-view transformer' {
         $guide = @(Get-LogicRipperValueGuide)
         $guide.value | Should -Contain 'Tenant ID'
         $guide.value | Should -Contain 'Managed identity object/principal ID'
+    }
+
+    It 'normalises pure code view, full workflow resources and saved templates' {
+        $pure = Get-LogicRipperCanonicalCodeView -CodeViewJson $CodeView
+        $resourceJson = Get-Content -Raw "$PSScriptRoot\..\Fixtures\disable-user-accounts.workflow.json"
+        $resource = Get-LogicRipperCanonicalCodeView -CodeViewJson $resourceJson
+        $analysis = Invoke-LogicRipperAnalysis -CodeViewJson $CodeView
+        foreach ($f in $analysis.findings) { Set-LogicRipperFindingDecision -Analysis $analysis -FindingId $f.id -Decision preserve | Out-Null }
+        $template = Save-LogicRipperTemplate -Name 'Disable User Accounts' -Analysis $analysis -BasePath $Base
+        $saved = Get-LogicRipperCanonicalCodeView -InputObject (Get-LogicRipperTemplate -TemplateId $template.TemplateId -BasePath $Base)
+
+        $pure.sourceKind | Should -Be 'pureCodeView'
+        $resource.sourceKind | Should -Be 'workflowResource'
+        $saved.sourceKind | Should -Be 'savedTemplate'
+        $pure.codeViewHash | Should -Be $saved.codeViewHash
+    }
+
+    It 'uses explicit placeholders and fails when any remain unresolved' {
+        $placeholderCodeView = @{
+            '$schema' = 'https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#'
+            contentVersion = '1.0.0.0'
+            parameters = @{}
+            triggers = @{ manual = @{ type = 'Request'; kind = 'Http'; inputs = @{ schema = @{} } } }
+            actions = @{ Notify = @{ type = 'Http'; inputs = @{ method = 'POST'; uri = 'https://graph.microsoft.com/v1.0/users'; body = @{ email = '{{notificationEmail}}' } }; runAfter = @{} } }
+            outputs = @{}
+        } | ConvertTo-Json -Depth 20
+        $analysis = Invoke-LogicRipperAnalysis -CodeViewJson $placeholderCodeView
+        $template = Save-LogicRipperTemplate -Name 'Placeholder Template' -Analysis $analysis -BasePath $Base
+        $workspace = New-LogicRipperTargetWorkspace -BasePath $Base -DisplayName 'Contoso Production' -Values @{}
+        $binding = New-LogicRipperBinding -BasePath $Base -TemplateId $template.TemplateId -ProfileId $workspace.ProfileId -Values @{}
+        { New-LogicRipperCodeView -BasePath $Base -TemplateId $template.TemplateId -ProfileId $workspace.ProfileId -BindingId $binding.BindingId } | Should -Throw -ExpectedMessage '*missing value*'
+    }
+
+    It 'maps $connections values from a saved binding' {
+        $connectionCodeView = @{
+            '$schema' = 'https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#'
+            contentVersion = '1.0.0.0'
+            parameters = @{
+                '$connections' = @{
+                    type = 'Object'
+                    value = @{
+                        azuresentinel = @{
+                            connectionId = '/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/rg-source/providers/Microsoft.Web/connections/azuresentinel-source'
+                            connectionName = 'azuresentinel-source'
+                            id = '/subscriptions/22222222-2222-2222-2222-222222222222/providers/Microsoft.Web/locations/uksouth/managedApis/azuresentinel'
+                        }
+                    }
+                }
+            }
+            triggers = @{ Incident = @{ type = 'ApiConnectionWebhook'; inputs = @{ host = @{ connection = @{ name = "@parameters('$connections')['azuresentinel']['connectionId']" } }; path = '/incident' } } }
+            actions = @{ Comment = @{ type = 'ApiConnection'; inputs = @{ host = @{ connection = @{ name = "@parameters('$connections')['azuresentinel']['connectionId']" } }; method = 'post'; path = '/comments' }; runAfter = @{} } }
+            outputs = @{}
+        } | ConvertTo-Json -Depth 30
+        $analysis = Invoke-LogicRipperAnalysis -CodeViewJson $connectionCodeView
+        foreach ($f in $analysis.findings) {
+            $name = switch ($f.kind) {
+                'apiConnectionId' { 'sentinelConnectionId' }
+                'apiConnectionName' { 'sentinelConnectionName' }
+                'managedApiId' { 'sentinelManagedApiId' }
+                default { $f.replacementName }
+            }
+            Set-LogicRipperFindingDecision -Analysis $analysis -FindingId $f.id -Decision replace -ReplacementName $name | Out-Null
+        }
+        $template = Save-LogicRipperTemplate -Name 'Connection Template' -Analysis $analysis -BasePath $Base
+        $workspace = New-LogicRipperTargetWorkspace -BasePath $Base -DisplayName 'Contoso Production' -Values @{}
+        $binding = New-LogicRipperBinding -BasePath $Base -TemplateId $template.TemplateId -ProfileId $workspace.ProfileId -Values @{
+            sentinelConnectionId = '/subscriptions/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/resourceGroups/rg-contoso/providers/Microsoft.Web/connections/azuresentinel-contoso'
+            sentinelConnectionName = 'azuresentinel-contoso'
+            sentinelManagedApiId = '/subscriptions/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/providers/Microsoft.Web/locations/uksouth/managedApis/azuresentinel'
+        }
+        $generated = New-LogicRipperCodeView -BasePath $Base -TemplateId $template.TemplateId -ProfileId $workspace.ProfileId -BindingId $binding.BindingId
+        $json = Get-Content -Raw $generated.Path
+        $json | Should -Match 'azuresentinel-contoso'
+        $json | Should -Not -Match 'azuresentinel-source'
+        $json | Should -Not -Match '22222222-2222-2222-2222-222222222222'
     }
 }

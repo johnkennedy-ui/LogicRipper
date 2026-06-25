@@ -1,6 +1,6 @@
 @{
     RootModule = 'LogicRipper.psm1'
-    ModuleVersion = '0.2.0'
+    ModuleVersion = '0.3.0'
     GUID = '3f66135f-3f2f-4ec5-bf06-11f5ad6994c1'
     Author = 'Logic Ripper contributors'
     CompanyName = 'Independent'
@@ -9,6 +9,7 @@
     PowerShellVersion = '7.4'
     FunctionsToExport = @(
         'Get-LogicRipperPath',
+        'Get-LogicRipperCanonicalCodeView',
         'Invoke-LogicRipperAnalysis',
         'Set-LogicRipperFindingDecision',
         'Save-LogicRipperTemplate',
@@ -19,6 +20,7 @@
         'New-LogicRipperBinding',
         'Get-LogicRipperBinding',
         'New-LogicRipperCodeView',
+        'Test-LogicRipperCodeView',
         'Get-LogicRipperValueGuide'
     )
     CmdletsToExport = @()

@@ -97,10 +97,12 @@
             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
             <TextBlock Text="Pick or add target workspace values" FontSize="20" FontWeight="SemiBold"/>
             <Grid Grid.Row="1" Margin="0,12,0,12">
-              <Grid.ColumnDefinitions><ColumnDefinition Width="130"/><ColumnDefinition Width="*"/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions>
+              <Grid.ColumnDefinitions><ColumnDefinition Width="130"/><ColumnDefinition Width="*"/><ColumnDefinition Width="110"/><ColumnDefinition Width="90"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
               <TextBlock Text="Workspace name" VerticalAlignment="Center"/>
               <TextBox Name="WorkspaceNameText" Grid.Column="1" Height="30" Margin="0,0,8,0"/>
-              <Button Name="SaveWorkspaceButton" Grid.Column="2" Content="Save profile"/>
+              <Button Name="AddWorkspaceButton" Grid.Column="2" Content="Add workspace" Margin="0,0,6,0"/>
+              <Button Name="EditWorkspaceButton" Grid.Column="3" Content="Edit" Margin="0,0,6,0"/>
+              <Button Name="SaveWorkspaceButton" Grid.Column="4" Content="Save"/>
             </Grid>
             <DataGrid Name="WorkspaceGrid" Grid.Row="2" AutoGenerateColumns="False" SelectionMode="Single" IsReadOnly="True">
               <DataGrid.Columns>
@@ -121,12 +123,25 @@
         </TabItem>
         <TabItem Header="5 Generate">
           <Grid Margin="12">
-            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-            <TextBlock Text="Generate target code-view JSON" FontSize="20" FontWeight="SemiBold"/>
-            <TextBox Name="GeneratedCodeViewText" Grid.Row="1" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" IsReadOnly="True" Margin="0,12,0,0"/>
-            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <StackPanel>
+              <TextBlock Text="Generate target code-view JSON" FontSize="20" FontWeight="SemiBold"/>
+              <TextBlock Text="Save values that belong to this template and workspace, such as notificationEmail and API connection mappings. Enter one value at a time." Margin="0,6,0,10"/>
+            </StackPanel>
+            <StackPanel Grid.Row="1">
+              <DockPanel>
+                <TextBox Name="BindingValueNameText" Width="220" Margin="0,0,6,0" ToolTip="Value name, e.g. notificationEmail or sentinelConnectionId"/>
+                <TextBox Name="BindingValueText" Width="430" Margin="0,0,6,0" ToolTip="Value or Manual reconnect required"/>
+                <Button Name="AddBindingValueButton" Content="Add value" Width="95" Margin="0,0,6,0"/>
+                <Button Name="SaveBindingButton" Content="Save binding" Width="105"/>
+              </DockPanel>
+              <TextBox Name="BindingValuesPreviewText" Height="58" AcceptsReturn="True" IsReadOnly="True" Margin="0,6,0,0"/>
+            </StackPanel>
+            <TextBox Name="GeneratedCodeViewText" Grid.Row="2" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" IsReadOnly="True" Margin="0,12,0,0"/>
+            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
               <Button Name="GenerateButton" Content="Generate" Width="110" Margin="0,0,6,0"/>
-              <Button Name="CopyButton" Content="Copy JSON" Width="110"/>
+              <Button Name="CopyButton" Content="Copy JSON" Width="110" Margin="0,0,6,0"/>
+              <Button Name="OpenOutputButton" Content="Open folder" Width="110"/>
             </StackPanel>
           </Grid>
         </TabItem>
