@@ -102,6 +102,12 @@ Describe 'Logic Ripper MVP' {
         @($t.previousVersions).Count | Should -BeGreaterThan 0
     }
 
+    It 'renames a saved template after code-view import' {
+        $r = Import-LogicRipperWorkflow -WorkflowPath "$PSScriptRoot\..\Fixtures\scheduled.workflow.json" -BasePath $Base -SourceContext $Source
+        Rename-LogicRipperTemplate -TemplateId $r.TemplateId -DisplayName 'Renamed Scheduled Template' -BasePath $Base | Out-Null
+        (Get-LogicRipperTemplate -TemplateId $r.TemplateId -BasePath $Base).displayName | Should -Be 'Renamed Scheduled Template'
+    }
+
     It 'reuses saved Target Workspaces and Template Bindings' {
         $r = Import-LogicRipperWorkflow -WorkflowPath "$PSScriptRoot\..\Fixtures\scheduled.workflow.json" -BasePath $Base -SourceContext $Source
         $w = New-TestWorkspace

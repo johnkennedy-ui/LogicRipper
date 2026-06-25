@@ -338,6 +338,25 @@ function Get-LogicRipperTemplate {
     foreach ($file in $files) { if (Test-Path -LiteralPath $file) { ConvertFrom-JsonFile $file } }
 }
 
+function Rename-LogicRipperTemplate {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$TemplateId,
+        [Parameter(Mandatory)][string]$DisplayName,
+        [string]$Description,
+        [string]$Category,
+        [string]$BasePath
+    )
+    $path = Join-Path (Get-LogicRipperPath -Kind Library -BasePath $BasePath) "$TemplateId.json"
+    if (-not (Test-Path -LiteralPath $path)) { throw "Template not found: $TemplateId" }
+    $template = ConvertFrom-JsonFile $path
+    $template.displayName = $DisplayName
+    if ($PSBoundParameters.ContainsKey('Description')) { $template.description = $Description }
+    if ($PSBoundParameters.ContainsKey('Category')) { $template.category = $Category }
+    Write-AtomicJson -Path $path -InputObject $template
+    [pscustomobject]@{ status = 'Renamed'; templateId = $TemplateId; displayName = $DisplayName; path = $path }
+}
+
 function New-LogicRipperTargetWorkspace {
     [CmdletBinding()]
     param(

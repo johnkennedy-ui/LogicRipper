@@ -17,7 +17,7 @@
         <StackPanel>
           <TextBlock Text="Logic Ripper" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,14"/>
           <RadioButton Name="StepInput" Content="1. Input code view" IsChecked="True" Margin="0,0,0,10"/>
-          <RadioButton Name="StepTemplate" Content="2. Pick template" Margin="0,0,0,10"/>
+          <RadioButton Name="StepTemplate" Content="2. Review template" Margin="0,0,0,10"/>
           <RadioButton Name="StepWorkspace" Content="3. Pick workspace" Margin="0,0,0,10"/>
           <RadioButton Name="StepValues" Content="4. Enter missing value" Margin="0,0,0,10"/>
           <RadioButton Name="StepExport" Content="5. Export code view" Margin="0,0,0,18"/>
@@ -49,13 +49,25 @@
           <Grid Margin="12">
             <Grid.RowDefinitions>
               <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
               <RowDefinition Height="*"/>
+              <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
             <StackPanel>
-              <TextBlock Text="Pick one saved template" FontSize="20" FontWeight="SemiBold"/>
-              <TextBlock Text="Select one template. Template details and requirements appear after selection." Margin="0,6,0,12"/>
+              <TextBlock Text="Review the template just imported" FontSize="20" FontWeight="SemiBold"/>
+              <TextBlock Text="The imported code-view JSON is now a reusable sanitised template. Rename it here if needed." Margin="0,6,0,12"/>
             </StackPanel>
-            <DataGrid Name="TemplateGrid" Grid.Row="1" AutoGenerateColumns="False" SelectionMode="Single" IsReadOnly="True">
+            <Grid Grid.Row="1" Margin="0,0,0,10">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="120"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="110"/>
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="Template name" VerticalAlignment="Center"/>
+              <TextBox Name="TemplateNameText" Grid.Column="1" Height="30" Margin="0,0,8,0"/>
+              <Button Name="RenameTemplateButton" Grid.Column="2" Content="Save name"/>
+            </Grid>
+            <DataGrid Name="TemplateGrid" Grid.Row="2" AutoGenerateColumns="False" SelectionMode="Single" IsReadOnly="True">
               <DataGrid.Columns>
                 <DataGridTextColumn Header="Template" Binding="{Binding displayName}" Width="180"/>
                 <DataGridTextColumn Header="Description" Binding="{Binding description}" Width="250"/>
@@ -64,6 +76,7 @@
                 <DataGridTextColumn Header="Status" Binding="{Binding readinessStatus}" Width="130"/>
               </DataGrid.Columns>
             </DataGrid>
+            <TextBlock Grid.Row="3" Text="No extra template selection is needed after import. This grid is only the library/history view." Margin="0,10,0,0"/>
           </Grid>
         </TabItem>
 

@@ -10,6 +10,7 @@
     FunctionsToExport = @(
         'Get-LogicRipperPath',
         'Get-LogicRipperTemplate',
+        'Rename-LogicRipperTemplate',
         'Import-LogicRipperWorkflow',
         'Invoke-LogicRipperBatchRip',
         'New-LogicRipperTargetWorkspace',

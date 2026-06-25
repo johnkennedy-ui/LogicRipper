@@ -25,6 +25,8 @@ $outputFolder = Find-Control 'OutputFolderText'
 $tabs = Find-Control 'Tabs'
 $missingValues = Find-Control 'MissingValuesText'
 $validationSummary = Find-Control 'ValidationSummaryText'
+$templateNameText = Find-Control 'TemplateNameText'
+$script:CurrentTemplateId = $null
 
 function Add-Activity([string]$Message) {
     $activity.AppendText("$(Get-Date -Format s) $Message`r`n")
@@ -48,6 +50,7 @@ function Move-Step([int]$Delta) {
 function Show-ValueGuide {
     $template = $templateGrid.SelectedItem
     if (-not $template) { return }
+    $templateNameText.Text = $template.displayName
     $guide = @(Get-LogicRipperRequiredValueGuide -TemplateId $template.templateId -BasePath $BasePath)
     $missingValues.Text = (($guide | ForEach-Object { "$($_.name)`r`n$($_.guide)" }) -join "`r`n`r`n")
 }
@@ -58,11 +61,25 @@ function Show-ValueGuide {
     if ($dialog.ShowDialog()) {
         try {
             Add-Activity "Importing $($dialog.FileName)"
-            Import-LogicRipperWorkflow -WorkflowPath $dialog.FileName -BasePath $BasePath | Out-Null
+            $result = Import-LogicRipperWorkflow -WorkflowPath $dialog.FileName -BasePath $BasePath
+            $script:CurrentTemplateId = $result.templateId
             Refresh-LogicRipperData
+            foreach ($item in $templateGrid.ItemsSource) {
+                if ($item.templateId -eq $script:CurrentTemplateId) { $templateGrid.SelectedItem = $item; break }
+            }
+            (Find-Control 'Tabs').SelectedIndex = 1
             Add-Activity 'Template imported'
         } catch { Add-Activity "Import failed: $($_.Exception.Message)" }
     }
+})
+
+(Find-Control 'RenameTemplateButton').Add_Click({
+    $template = $templateGrid.SelectedItem
+    if (-not $template) { Add-Activity 'Import or select a template first'; return }
+    if ([string]::IsNullOrWhiteSpace($templateNameText.Text)) { Add-Activity 'Template name is required'; return }
+    Rename-LogicRipperTemplate -TemplateId $template.templateId -DisplayName $templateNameText.Text -BasePath $BasePath | Out-Null
+    Refresh-LogicRipperData
+    Add-Activity 'Template name saved'
 })
 
 (Find-Control 'GeneratePackageButton').Add_Click({

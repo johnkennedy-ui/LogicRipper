@@ -76,6 +76,14 @@ The GUI is a thin WPF wrapper over the module commands. The primary export
 button writes a `codeview.json` file suitable for Logic App code-view reuse.
 Deployment remains a separate explicit action.
 
+GUI flow:
+
+1. Choose one Logic App code-view JSON file.
+2. Review and optionally rename the imported template.
+3. Pick or add one target workspace.
+4. Enter one missing value at a time.
+5. Export `codeview.json`.
+
 ## CLI example
 
 ```powershell
