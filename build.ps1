@@ -10,8 +10,7 @@ $ErrorActionPreference = 'Stop'
 if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required.' }
 
 if ($Test) {
-    Import-Module Pester -MinimumVersion 5.0 -ErrorAction Stop
-    Invoke-Pester -Path (Join-Path $PSScriptRoot 'tests') -CI
+    & (Join-Path $PSScriptRoot 'tests/Run-LogicRipperTests.ps1')
 }
 
 if ($Zip) {

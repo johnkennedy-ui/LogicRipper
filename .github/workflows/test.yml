@@ -5,13 +5,10 @@ on:
   pull_request:
 
 jobs:
-  pester:
+  local-tests:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install Pester
-        shell: pwsh
-        run: Install-Module Pester -MinimumVersion 5.0 -Scope CurrentUser -Force
       - name: Run tests
         shell: pwsh
         run: .\build.ps1 -Test
