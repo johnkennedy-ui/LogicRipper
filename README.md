@@ -9,9 +9,9 @@ bash ./scripts/install-ubuntu.sh
 ~/.local/bin/logic-ripper status
 ```
 
-Logic Ripper is a local Logic App code-view transformer. It does not log in to
-Azure, discover resources, deploy anything, create ARM/Bicep, run what-if, or
-validate live Azure resources.
+Logic Ripper is a strictly local Logic App code-view transformer. It does not
+connect to cloud APIs, discover resources, deploy anything, create ARM/Bicep,
+run what-if, or validate live resources.
 
 ## Supported MVP Workflow
 
@@ -46,14 +46,14 @@ Accepted input forms:
 - A full `Microsoft.Logic/workflows` resource JSON, normalised down to code view.
 - A saved Logic Ripper template.
 
-Validation is code-view only:
+Local validation is code-view only:
 
 - JSON parses.
 - `triggers` and `actions` exist.
 - Source values marked `replace` do not remain after generation.
 - `{{placeholders}}` are resolved.
 - Probable secrets are not exported.
-- `$connections` values are mapped, or explicitly marked `Manual reconnect required`.
+- `$connections` values are mapped, or explicitly marked `Manual edit required`.
 
 The example template is `Disable User Accounts`, a Sentinel incident response
 playbook that disables one or more Entra user accounts.
@@ -83,12 +83,12 @@ or:
 
 ## Out Of Scope
 
-- Azure source discovery
-- Azure login
+- live source discovery
+- live login
 - subscription/resource-group browsing
-- Logic App export from Azure
+- Logic App export from a live service
 - direct deployment
 - ARM/Bicep output
-- Azure what-if
-- live target validation
+- what-if
+- live value/resource validation
 - broad connector automation

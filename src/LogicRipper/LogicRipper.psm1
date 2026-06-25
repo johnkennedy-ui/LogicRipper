@@ -3,9 +3,9 @@ Set-StrictMode -Version Latest
 $script:SchemaVersion = '3.0'
 $script:AllowedDecisions = @('replace','preserve','secret')
 $script:KnownStableMicrosoftGuids = @(
-    '00000003-0000-0000-c000-000000000000', # Microsoft Graph
-    '797f4846-ba00-4fd7-ba43-dac1f8f63013', # Azure Service Management
-    '1950a258-227b-4e31-a9cf-717495945fc2'  # Azure PowerShell
+    '00000003-0000-0000-c000-000000000000',
+    '797f4846-ba00-4fd7-ba43-dac1f8f63013',
+    '1950a258-227b-4e31-a9cf-717495945fc2'
 )
 
 function ConvertFrom-JsonFile {
@@ -142,7 +142,7 @@ function Get-DetectedValueMatches {
     param([Parameter(Mandatory)][string]$Value, [Parameter(Mandatory)][string]$Path)
     $rules = @(
         @{ kind = 'secret'; regex = '(?i)(sig=|code=|client[_-]?secret|password|AccountKey=|SharedAccessSignature|Bearer\s+[a-z0-9._~+/=-]+|sv=\d{4}-\d{2}-\d{2}&.*\bsig=)' },
-        @{ kind = 'apiConnectionId'; regex = '/subscriptions/[0-9a-f-]{36}/resourceGroups/[^/]+/providers/Microsoft\.Web/connections/[^/\s''")?]+' },
+        @{ kind = 'connectorReferenceId'; regex = '/subscriptions/[0-9a-f-]{36}/resourceGroups/[^/]+/providers/Microsoft\.Web/connections/[^/\s''")?]+' },
         @{ kind = 'managedIdentityId'; regex = '/subscriptions/[0-9a-f-]{36}/resourceGroups/[^/]+/providers/Microsoft\.ManagedIdentity/userAssignedIdentities/[^/\s''")?]+' },
         @{ kind = 'azureResourceId'; regex = '/subscriptions/[0-9a-f-]{36}/resourceGroups/[^/\s''")?]+(?:/providers/[^/\s''")?]+/[^/\s''")?]+/[^/\s''")?]+)+' },
         @{ kind = 'functionUrl'; regex = 'https://[A-Za-z0-9-]+\.azurewebsites\.net/[^\s''"]*' },
@@ -171,10 +171,10 @@ function Get-DetectedValueMatches {
     }
 
     if ($Path -like '*.parameters.$connections.defaultValue.*.connectionId' -or $Path -like '*.parameters.$connections.value.*.connectionId') {
-        [pscustomobject]@{ kind = 'apiConnectionId'; value = $Value; decision = 'review' }
+        [pscustomobject]@{ kind = 'connectorReferenceId'; value = $Value; decision = 'review' }
     }
     if ($Path -like '*.parameters.$connections.defaultValue.*.connectionName' -or $Path -like '*.parameters.$connections.value.*.connectionName') {
-        [pscustomobject]@{ kind = 'apiConnectionName'; value = $Value; decision = 'review' }
+        [pscustomobject]@{ kind = 'connectorReferenceName'; value = $Value; decision = 'review' }
     }
     if ($Path -like '*.parameters.$connections.defaultValue.*.id' -or $Path -like '*.parameters.$connections.value.*.id') {
         [pscustomobject]@{ kind = 'managedApiId'; value = $Value; decision = 'review' }
@@ -191,8 +191,8 @@ function Get-ReplacementName {
             'guid_' + (Get-StableId "$Path|$Value")
         }
         'email' { 'notificationEmail' }
-        'apiConnectionId' { 'sentinelConnectionId' }
-        'apiConnectionName' { 'sentinelConnectionName' }
+        'connectorReferenceId' { 'sentinelConnectionId' }
+        'connectorReferenceName' { 'sentinelConnectionName' }
         'managedApiId' { 'sentinelManagedApiId' }
         'keyVaultUrl' { 'keyVaultUri' }
         'functionUrl' { 'functionUrl' }
@@ -204,10 +204,10 @@ function Get-ReplacementName {
 function Get-ValueGuideText {
     param([string]$Kind)
     switch ($Kind) {
-        'apiConnectionId' { 'Target Logic App -> API connections -> open authorised connection -> Properties -> Resource ID.' }
-        'apiConnectionName' { 'Use the target API connection resource name. If OAuth cannot be pre-mapped, mark manual reconnect required.' }
-        'managedApiId' { 'Use the target region managed API ID, normally /subscriptions/<sub>/providers/Microsoft.Web/locations/<location>/managedApis/<connector>.' }
-        'azureResourceId' { 'Azure Portal -> open target resource -> Properties -> Resource ID.' }
+        'connectorReferenceId' { 'Paste the target connector reference connectionId value for this Logic App code-view JSON field.' }
+        'connectorReferenceName' { 'Paste the target connector reference connectionName value, or enter Manual edit required.' }
+        'managedApiId' { 'Paste the target connector reference managedApiId value for this Logic App code-view JSON field.' }
+        'azureResourceId' { 'Paste the target resource ID value that should replace this local JSON value.' }
         'managedIdentityId' { 'Managed Identities -> select identity -> Properties -> Resource ID.' }
         'guid' { 'Review unknown GUID. Replace tenant/subscription/workspace/object IDs; preserve only known stable Microsoft IDs.' }
         'functionUrl' { 'Function App -> Functions -> selected function -> Get Function URL. Do not paste keys unless stored as a safe reference.' }
@@ -477,9 +477,9 @@ function Apply-CodeViewReplacement {
 function Test-ConnectionManualReconnect {
     param([object]$Template, [object]$Binding)
     $manual = @()
-    foreach ($finding in @($Template.findings | Where-Object { $_.kind -in @('apiConnectionId','apiConnectionName','managedApiId') })) {
+    foreach ($finding in @($Template.findings | Where-Object { $_.kind -in @('connectorReferenceId','connectorReferenceName','managedApiId') })) {
         $value = Resolve-ReplacementValue -Name $finding.replacementName -Workspace $null -Binding $Binding
-        if ($value -eq 'Manual reconnect required') { $manual += $finding.path }
+        if ($value -eq 'Manual edit required') { $manual += $finding.path }
     }
     $manual
 }
@@ -499,19 +499,19 @@ function Test-LogicRipperCodeView {
     Assert-NoRawSecret -Json $json -Message 'Generated code view contains probable secrets.'
     if ($Template) {
         foreach ($finding in @($Template.findings | Where-Object decision -eq 'replace')) {
-            if ($finding.kind -in @('apiConnectionId','apiConnectionName','managedApiId')) {
+            if ($finding.kind -in @('connectorReferenceId','connectorReferenceName','managedApiId')) {
                 $connectionValue = Resolve-ReplacementValue -Name $finding.replacementName -Workspace $null -Binding $Binding
-                if ($connectionValue -eq 'Manual reconnect required') { continue }
+                if ($connectionValue -eq 'Manual edit required') { continue }
             }
             if ($json.Contains([string]$finding.value)) { throw "Generated code view still contains source value at $($finding.path)" }
         }
-        $connectionFindings = @($Template.findings | Where-Object { $_.kind -in @('apiConnectionId','apiConnectionName','managedApiId') -and $_.decision -eq 'replace' })
+        $connectionFindings = @($Template.findings | Where-Object { $_.kind -in @('connectorReferenceId','connectorReferenceName','managedApiId') -and $_.decision -eq 'replace' })
         foreach ($finding in $connectionFindings) {
             $value = Resolve-ReplacementValue -Name $finding.replacementName -Workspace $null -Binding $Binding
-            if ($null -eq $value) { throw "Connection needs mapping or Manual reconnect required: $($finding.replacementName)" }
+            if ($null -eq $value) { throw "Missing local connector reference value: $($finding.replacementName)" }
         }
     }
-    [pscustomobject]@{ status = 'Valid code view'; manualReconnect = @(Test-ConnectionManualReconnect -Template $Template -Binding $Binding) }
+    [pscustomobject]@{ status = 'Local validation passed'; manualEditRequired = @(Test-ConnectionManualReconnect -Template $Template -Binding $Binding) }
 }
 
 function New-LogicRipperCodeView {
@@ -537,7 +537,7 @@ function New-LogicRipperCodeView {
     foreach ($finding in @($template.findings | Where-Object decision -eq 'replace')) {
         $value = Resolve-ReplacementValue -Name $finding.replacementName -Workspace $workspace -Binding $binding
         if ($null -eq $value) { throw "Needs review: missing value for $($finding.replacementName)" }
-        if ($value -eq 'Manual reconnect required') { continue }
+        if ($value -eq 'Manual edit required') { continue }
         Apply-CodeViewReplacement -CodeView $codeView -Finding $finding -NewValue ([string]$value)
     }
 
@@ -553,12 +553,12 @@ function Get-LogicRipperValueGuide {
     [CmdletBinding()]
     param()
     @(
-        [pscustomobject]@{ value = 'Tenant ID'; storedIn = 'Workspace'; guide = 'Azure Portal -> Microsoft Entra ID -> Overview -> Tenant ID.' },
-        [pscustomobject]@{ value = 'Subscription ID'; storedIn = 'Workspace'; guide = 'Azure Portal -> Subscriptions -> select subscription -> Overview -> Subscription ID.' },
-        [pscustomobject]@{ value = 'Workspace resource ID'; storedIn = 'Workspace'; guide = 'Log Analytics workspace -> Properties -> Resource ID.' },
-        [pscustomobject]@{ value = 'API connection ID'; storedIn = 'Binding'; guide = 'Target Logic App resource group -> API connections -> open authorised connection -> Properties -> Resource ID. For OAuth connectors, use Manual reconnect required if not pre-authorised.' },
-        [pscustomobject]@{ value = 'Managed API ID'; storedIn = 'Binding'; guide = 'Use /subscriptions/<target-sub>/providers/Microsoft.Web/locations/<target-location>/managedApis/<connector>.' },
-        [pscustomobject]@{ value = 'Managed identity object/principal ID'; storedIn = 'Workspace or Binding'; guide = 'Managed Identities -> selected identity -> Overview -> Object/principal ID.' },
+        [pscustomobject]@{ value = 'Tenant ID'; storedIn = 'Workspace'; guide = 'Paste the target tenant ID that should replace a source tenant ID in the code-view JSON.' },
+        [pscustomobject]@{ value = 'Subscription ID'; storedIn = 'Workspace'; guide = 'Paste the target subscription ID that should replace a source subscription ID in the code-view JSON.' },
+        [pscustomobject]@{ value = 'Workspace resource ID'; storedIn = 'Workspace'; guide = 'Paste the target workspace resource ID that should replace the source workspace resource ID.' },
+        [pscustomobject]@{ value = 'connectorReference.connectionId'; storedIn = 'Binding'; guide = 'Paste the target $connections connectionId string, or enter Manual edit required.' },
+        [pscustomobject]@{ value = 'connectorReference.managedApiId'; storedIn = 'Binding'; guide = 'Paste the target $connections managedApiId string, or enter Manual edit required.' },
+        [pscustomobject]@{ value = 'runtimeIdentityResourceId'; storedIn = 'Workspace or Binding'; guide = 'Paste this only when the code-view JSON has a runtime identity resource ID placeholder.' },
         [pscustomobject]@{ value = 'Notification email'; storedIn = 'Binding'; guide = 'Use the target customer mailbox for this specific playbook.' }
     )
 }

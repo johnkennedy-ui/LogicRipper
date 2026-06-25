@@ -106,7 +106,7 @@ Describe 'Logic Ripper local code-view transformer' {
     It 'returns a simple value guide' {
         $guide = @(Get-LogicRipperValueGuide)
         $guide.value | Should -Contain 'Tenant ID'
-        $guide.value | Should -Contain 'Managed identity object/principal ID'
+        $guide.value | Should -Contain 'runtimeIdentityResourceId'
     }
 
     It 'normalises pure code view, full workflow resources and saved templates' {
@@ -163,8 +163,8 @@ Describe 'Logic Ripper local code-view transformer' {
         $analysis = Invoke-LogicRipperAnalysis -CodeViewJson $connectionCodeView
         foreach ($f in $analysis.findings) {
             $name = switch ($f.kind) {
-                'apiConnectionId' { 'sentinelConnectionId' }
-                'apiConnectionName' { 'sentinelConnectionName' }
+                'connectorReferenceId' { 'sentinelConnectionId' }
+                'connectorReferenceName' { 'sentinelConnectionName' }
                 'managedApiId' { 'sentinelManagedApiId' }
                 default { $f.replacementName }
             }

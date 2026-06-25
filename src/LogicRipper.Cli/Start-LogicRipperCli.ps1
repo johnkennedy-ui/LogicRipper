@@ -19,7 +19,7 @@ switch ($Command) {
             templates = @(Get-LogicRipperTemplate -BasePath $BasePath).Count
             targetWorkspaces = @(Get-LogicRipperTargetWorkspace -BasePath $BasePath).Count
             bindings = @(Get-LogicRipperBinding -BasePath $BasePath).Count
-            outOfScope = @('Azure login','Azure discovery','deployment','ARM/Bicep','what-if')
+            outOfScope = @('live login','live discovery','deployment','ARM/Bicep','what-if','live API calls')
         } | ConvertTo-Json -Depth 8
     }
     'guide' {
