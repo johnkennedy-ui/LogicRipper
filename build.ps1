@@ -21,13 +21,9 @@ if ($Zip) {
     Compress-Archive -Path @(
         (Join-Path $PSScriptRoot 'src'),
         (Join-Path $PSScriptRoot 'scripts'),
-        (Join-Path $PSScriptRoot 'schemas'),
-        (Join-Path $PSScriptRoot 'examples'),
         (Join-Path $PSScriptRoot 'docs'),
         (Join-Path $PSScriptRoot 'README.md'),
-        (Join-Path $PSScriptRoot 'LICENSE'),
-        (Join-Path $PSScriptRoot 'UPSTREAM.md'),
-        (Join-Path $PSScriptRoot 'THIRD_PARTY_NOTICES.md')
+        (Join-Path $PSScriptRoot 'LICENSE')
     ) -DestinationPath $zipPath
     $zipPath
 }

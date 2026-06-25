@@ -5,117 +5,119 @@ param([string]$BasePath)
 Import-Module (Join-Path $PSScriptRoot '..' 'LogicRipper' 'LogicRipper.psd1') -Force
 
 if (-not $IsWindows) {
-    throw 'Logic Ripper GUI uses WPF and must be launched on Windows. Use the LogicRipper module CLI commands on other platforms.'
+    throw 'Logic Ripper GUI uses WPF and must be launched on Windows.'
 }
 
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
-
-$xamlPath = Join-Path $PSScriptRoot 'MainWindow.xaml'
-$reader = [System.Xml.XmlReader]::Create($xamlPath)
+$reader = [System.Xml.XmlReader]::Create((Join-Path $PSScriptRoot 'MainWindow.xaml'))
 $window = [Windows.Markup.XamlReader]::Load($reader)
 $reader.Close()
 
-function Find-Control([string]$Name) { $window.FindName($Name) }
+function C([string]$Name) { $window.FindName($Name) }
 
-$status = Find-Control 'StatusText'
-$activity = Find-Control 'ActivityLog'
-$templateGrid = Find-Control 'TemplateGrid'
-$workspaceGrid = Find-Control 'WorkspaceGrid'
-$outputFolder = Find-Control 'OutputFolderText'
-$tabs = Find-Control 'Tabs'
-$missingValues = Find-Control 'MissingValuesText'
-$validationSummary = Find-Control 'ValidationSummaryText'
-$templateNameText = Find-Control 'TemplateNameText'
-$script:CurrentTemplateId = $null
+$status = C StatusText
+$activity = C ActivityLog
+$tabs = C Tabs
+$codeViewText = C CodeViewText
+$findingsGrid = C FindingsGrid
+$templateGrid = C TemplateGrid
+$workspaceGrid = C WorkspaceGrid
+$templateNameText = C TemplateNameText
+$generatedText = C GeneratedCodeViewText
+$script:WorkspaceValues = @{}
+$script:Analysis = $null
+$script:TemplateId = $null
+$script:ProfileId = $null
 
-function Add-Activity([string]$Message) {
+function Say([string]$Message) {
+    $status.Text = $Message
     $activity.AppendText("$(Get-Date -Format s) $Message`r`n")
     $activity.ScrollToEnd()
-    $status.Text = $Message
 }
 
-function Refresh-LogicRipperData {
-    $templates = @(Get-LogicRipperTemplate -BasePath $BasePath)
-    $workspaces = @(Get-LogicRipperTargetWorkspace -BasePath $BasePath)
-    $templateGrid.ItemsSource = $templates
-    $workspaceGrid.ItemsSource = $workspaces
-    if (-not $outputFolder.Text) { $outputFolder.Text = Get-LogicRipperPath -Kind Generated -BasePath $BasePath }
+function Refresh-Lists {
+    $templateGrid.ItemsSource = @(Get-LogicRipperTemplate -BasePath $BasePath)
+    $workspaceGrid.ItemsSource = @(Get-LogicRipperTargetWorkspace -BasePath $BasePath)
 }
 
 function Move-Step([int]$Delta) {
-    $next = [Math]::Max(0, [Math]::Min($tabs.Items.Count - 2, $tabs.SelectedIndex + $Delta))
-    $tabs.SelectedIndex = $next
+    $tabs.SelectedIndex = [Math]::Max(0, [Math]::Min($tabs.Items.Count - 2, $tabs.SelectedIndex + $Delta))
 }
 
-function Show-ValueGuide {
-    $template = $templateGrid.SelectedItem
-    if (-not $template) { return }
-    $templateNameText.Text = $template.displayName
-    $guide = @(Get-LogicRipperRequiredValueGuide -TemplateId $template.templateId -BasePath $BasePath)
-    $missingValues.Text = (($guide | ForEach-Object { "$($_.name)`r`n$($_.guide)" }) -join "`r`n`r`n")
+function Mark-Selected([string]$Decision) {
+    $finding = $findingsGrid.SelectedItem
+    if (-not $finding) { Say 'Select one detected value first'; return }
+    Set-LogicRipperFindingDecision -Analysis $script:Analysis -FindingId $finding.id -Decision $Decision | Out-Null
+    $findingsGrid.ItemsSource = @($script:Analysis.findings)
+    Say "Marked $($finding.path) as $Decision"
 }
 
-(Find-Control 'ImportTemplateButton').Add_Click({
-    $dialog = [Microsoft.Win32.OpenFileDialog]::new()
-    $dialog.Filter = 'Logic App JSON (*.json)|*.json'
-    if ($dialog.ShowDialog()) {
-        try {
-            Add-Activity "Importing $($dialog.FileName)"
-            $result = Import-LogicRipperWorkflow -WorkflowPath $dialog.FileName -BasePath $BasePath
-            $script:CurrentTemplateId = $result.templateId
-            Refresh-LogicRipperData
-            foreach ($item in $templateGrid.ItemsSource) {
-                if ($item.templateId -eq $script:CurrentTemplateId) { $templateGrid.SelectedItem = $item; break }
-            }
-            (Find-Control 'Tabs').SelectedIndex = 1
-            Add-Activity 'Template imported'
-        } catch { Add-Activity "Import failed: $($_.Exception.Message)" }
-    }
+(C AnalyseButton).Add_Click({
+    try {
+        $script:Analysis = Invoke-LogicRipperAnalysis -CodeViewJson $codeViewText.Text
+        $findingsGrid.ItemsSource = @($script:Analysis.findings)
+        $tabs.SelectedIndex = 1
+        Say "Analysis complete: $(@($script:Analysis.findings).Count) values need review"
+    } catch { Say "Analyse failed: $($_.Exception.Message)" }
 })
 
-(Find-Control 'RenameTemplateButton').Add_Click({
-    $template = $templateGrid.SelectedItem
-    if (-not $template) { Add-Activity 'Import or select a template first'; return }
-    if ([string]::IsNullOrWhiteSpace($templateNameText.Text)) { Add-Activity 'Template name is required'; return }
-    Rename-LogicRipperTemplate -TemplateId $template.templateId -DisplayName $templateNameText.Text -BasePath $BasePath | Out-Null
-    Refresh-LogicRipperData
-    Add-Activity 'Template name saved'
+(C MarkReplaceButton).Add_Click({ Mark-Selected replace })
+(C MarkPreserveButton).Add_Click({ Mark-Selected preserve })
+(C MarkSecretButton).Add_Click({ Mark-Selected secret })
+
+(C SaveTemplateButton).Add_Click({
+    try {
+        if (-not $script:Analysis) { throw 'Analyse JSON first.' }
+        if ([string]::IsNullOrWhiteSpace($templateNameText.Text)) { throw 'Template name is required.' }
+        $saved = Save-LogicRipperTemplate -Name $templateNameText.Text -Analysis $script:Analysis -BasePath $BasePath
+        $script:TemplateId = $saved.templateId
+        Refresh-Lists
+        foreach ($item in $templateGrid.ItemsSource) { if ($item.templateId -eq $script:TemplateId) { $templateGrid.SelectedItem = $item; break } }
+        $tabs.SelectedIndex = 3
+        Say "Template saved: $($saved.name)"
+    } catch { Say "Save failed: $($_.Exception.Message)" }
 })
 
-(Find-Control 'GeneratePackageButton').Add_Click({
-    $template = $templateGrid.SelectedItem
-    $workspace = $workspaceGrid.SelectedItem
-    if (-not $template -or -not $workspace) { Add-Activity 'Select a template and target workspace first'; return }
-    $scriptBlock = {
-        param($modulePath,$base,$templateId,$profileId,$out)
-        Import-Module $modulePath -Force
-        Export-LogicRipperCodeView -TemplateId $templateId -TargetWorkspaceProfileId $profileId -BasePath $base -OutputPath $out
-    }
-    Add-Activity "Exporting code view $($template.displayName) for $($workspace.displayName)"
-    $ps = [PowerShell]::Create()
-    $null = $ps.AddScript($scriptBlock).AddArgument((Join-Path $PSScriptRoot '..' 'LogicRipper' 'LogicRipper.psd1')).AddArgument($BasePath).AddArgument($template.templateId).AddArgument($workspace.profileId).AddArgument($outputFolder.Text)
-    $handle = $ps.BeginInvoke()
-    Register-ObjectEvent -InputObject $handle -EventName AsyncWaitHandle -Action {} | Out-Null
-    while (-not $handle.IsCompleted) {
-        [Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([action]{}, [Windows.Threading.DispatcherPriority]::Background)
-        Start-Sleep -Milliseconds 100
-    }
-    try { $result = $ps.EndInvoke($handle); Add-Activity "Exported: $($result.Path)" } catch { Add-Activity "Export failed: $($_.Exception.Message)" }
-    $ps.Dispose()
+(C AddWorkspaceValueButton).Add_Click({
+    $name = (C WorkspaceValueNameText).Text
+    $value = (C WorkspaceValueText).Text
+    if ([string]::IsNullOrWhiteSpace($name) -or [string]::IsNullOrWhiteSpace($value)) { Say 'Enter one value name and value'; return }
+    $script:WorkspaceValues[$name] = $value
+    (C WorkspaceValuesPreviewText).Text = (($script:WorkspaceValues.GetEnumerator() | ForEach-Object { "$($_.Key) = $($_.Value)" }) -join "`r`n")
+    (C WorkspaceValueNameText).Text = ''
+    (C WorkspaceValueText).Text = ''
+    Say "Added workspace value $name"
 })
 
-(Find-Control 'NextButton').Add_Click({ Move-Step 1 })
-(Find-Control 'BackButton').Add_Click({ Move-Step -1 })
-
-$templateGrid.Add_SelectionChanged({ Show-ValueGuide })
-$workspaceGrid.Add_SelectionChanged({
-    $template = $templateGrid.SelectedItem
-    $workspace = $workspaceGrid.SelectedItem
-    if ($template -and $workspace) {
-        $validationSummary.Text = "Template: $($template.displayName)`r`nWorkspace: $($workspace.displayName)`r`nOutput: codeview.json"
-    }
+(C SaveWorkspaceButton).Add_Click({
+    try {
+        $name = (C WorkspaceNameText).Text
+        if ([string]::IsNullOrWhiteSpace($name)) { throw 'Workspace name is required.' }
+        $saved = New-LogicRipperTargetWorkspace -DisplayName $name -Values $script:WorkspaceValues -BasePath $BasePath
+        Refresh-Lists
+        foreach ($item in $workspaceGrid.ItemsSource) { if ($item.profileId -eq $saved.profileId) { $workspaceGrid.SelectedItem = $item; break } }
+        $tabs.SelectedIndex = 4
+        Say "Workspace saved: $($saved.displayName)"
+    } catch { Say "Workspace save failed: $($_.Exception.Message)" }
 })
 
-Refresh-LogicRipperData
-Add-Activity 'Ready'
+(C GenerateButton).Add_Click({
+    try {
+        $template = $templateGrid.SelectedItem
+        $workspace = $workspaceGrid.SelectedItem
+        if (-not $template) { throw 'Save or select one template first.' }
+        if (-not $workspace) { throw 'Select one workspace first.' }
+        $binding = New-LogicRipperBinding -TemplateId $template.templateId -ProfileId $workspace.profileId -Values @{} -BasePath $BasePath
+        $generated = New-LogicRipperCodeView -TemplateId $template.templateId -ProfileId $workspace.profileId -BindingId $binding.bindingId -BasePath $BasePath
+        $generatedText.Text = Get-Content -Raw -LiteralPath $generated.path
+        Say "Generated code-view JSON"
+    } catch { Say "Generate failed: $($_.Exception.Message)" }
+})
+
+(C CopyButton).Add_Click({ [Windows.Clipboard]::SetText($generatedText.Text); Say 'Copied generated JSON' })
+(C NextButton).Add_Click({ Move-Step 1 })
+(C BackButton).Add_Click({ Move-Step -1 })
+
+Refresh-Lists
+Say 'Ready'
 $window.ShowDialog() | Out-Null

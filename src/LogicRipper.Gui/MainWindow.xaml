@@ -4,152 +4,118 @@
   <DockPanel>
     <StatusBar DockPanel.Dock="Bottom">
       <TextBlock Name="StatusText" Text="Ready" />
-      <ProgressBar Name="Progress" Width="180" Height="14" Minimum="0" Maximum="100" Value="0" Margin="16,0,0,0"/>
     </StatusBar>
-
     <Grid Margin="10">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="210"/>
         <ColumnDefinition Width="*"/>
       </Grid.ColumnDefinitions>
-
       <Border BorderBrush="#cbd5e1" BorderThickness="1" Padding="10" Background="#f8fafc">
         <StackPanel>
           <TextBlock Text="Logic Ripper" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,14"/>
-          <RadioButton Name="StepInput" Content="1. Input code view" IsChecked="True" Margin="0,0,0,10"/>
-          <RadioButton Name="StepTemplate" Content="2. Review template" Margin="0,0,0,10"/>
-          <RadioButton Name="StepWorkspace" Content="3. Pick workspace" Margin="0,0,0,10"/>
-          <RadioButton Name="StepValues" Content="4. Enter missing value" Margin="0,0,0,10"/>
-          <RadioButton Name="StepExport" Content="5. Export code view" Margin="0,0,0,18"/>
+          <RadioButton Content="1. Paste code view" IsChecked="True" Margin="0,0,0,10"/>
+          <RadioButton Content="2. Review values" Margin="0,0,0,10"/>
+          <RadioButton Content="3. Save template" Margin="0,0,0,10"/>
+          <RadioButton Content="4. Workspace values" Margin="0,0,0,10"/>
+          <RadioButton Content="5. Generate JSON" Margin="0,0,0,18"/>
           <Separator Margin="0,0,0,12"/>
           <Button Name="BackButton" Content="Back" Height="30" Margin="0,0,0,6"/>
           <Button Name="NextButton" Content="Next" Height="30"/>
         </StackPanel>
       </Border>
-
       <TabControl Name="Tabs" Grid.Column="1" Margin="10,0,0,0">
-        <TabItem Header="1 Input">
+        <TabItem Header="1 Paste">
           <Grid Margin="12">
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto"/>
-              <RowDefinition Height="*"/>
-              <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
             <StackPanel>
-              <TextBlock Text="Input Logic App code view" FontSize="20" FontWeight="SemiBold"/>
-              <TextBlock Text="Choose one exported Logic App workflow JSON file. Sanitisation runs before anything is saved." Margin="0,6,0,12"/>
-              <Button Name="ImportTemplateButton" Content="Choose code-view JSON" Width="170" HorizontalAlignment="Left"/>
+              <TextBlock Text="Paste Logic App code-view JSON" FontSize="20" FontWeight="SemiBold"/>
+              <TextBlock Text="Paste one workflow definition from Logic App code view, then click Analyse." Margin="0,6,0,12"/>
             </StackPanel>
-            <TextBox Name="InputPreviewText" Grid.Row="1" Margin="0,12,0,12" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" IsReadOnly="True"/>
-            <TextBlock Grid.Row="2" Text="Result: sanitised template is stored in the local library and can be renamed or versioned later."/>
+            <TextBox Name="CodeViewText" Grid.Row="1" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" FontFamily="Consolas"/>
+            <Button Name="AnalyseButton" Grid.Row="2" Content="Analyse" Width="110" HorizontalAlignment="Right" Margin="0,10,0,0"/>
           </Grid>
         </TabItem>
-
-        <TabItem Header="2 Template">
+        <TabItem Header="2 Values">
           <Grid Margin="12">
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto"/>
-              <RowDefinition Height="Auto"/>
-              <RowDefinition Height="*"/>
-              <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
             <StackPanel>
-              <TextBlock Text="Review the template just imported" FontSize="20" FontWeight="SemiBold"/>
-              <TextBlock Text="The imported code-view JSON is now a reusable sanitised template. Rename it here if needed." Margin="0,6,0,12"/>
+              <TextBlock Text="Review detected values" FontSize="20" FontWeight="SemiBold"/>
+              <TextBlock Text="Mark each value as replace, preserve, or secret / do not export. Generation is blocked until every value is reviewed." Margin="0,6,0,12"/>
             </StackPanel>
-            <Grid Grid.Row="1" Margin="0,0,0,10">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="120"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="110"/>
-              </Grid.ColumnDefinitions>
-              <TextBlock Text="Template name" VerticalAlignment="Center"/>
-              <TextBox Name="TemplateNameText" Grid.Column="1" Height="30" Margin="0,0,8,0"/>
-              <Button Name="RenameTemplateButton" Grid.Column="2" Content="Save name"/>
-            </Grid>
-            <DataGrid Name="TemplateGrid" Grid.Row="2" AutoGenerateColumns="False" SelectionMode="Single" IsReadOnly="True">
+            <DataGrid Name="FindingsGrid" Grid.Row="1" AutoGenerateColumns="False" SelectionMode="Single">
               <DataGrid.Columns>
-                <DataGridTextColumn Header="Template" Binding="{Binding displayName}" Width="180"/>
-                <DataGridTextColumn Header="Description" Binding="{Binding description}" Width="250"/>
-                <DataGridTextColumn Header="Category" Binding="{Binding category}" Width="140"/>
-                <DataGridTextColumn Header="Trigger" Binding="{Binding triggerType}" Width="180"/>
-                <DataGridTextColumn Header="Status" Binding="{Binding readinessStatus}" Width="130"/>
-              </DataGrid.Columns>
-            </DataGrid>
-            <TextBlock Grid.Row="3" Text="No extra template selection is needed after import. This grid is only the library/history view." Margin="0,10,0,0"/>
-          </Grid>
-        </TabItem>
-
-        <TabItem Header="3 Workspace">
-          <Grid Margin="12">
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto"/>
-              <RowDefinition Height="*"/>
-              <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-            <StackPanel>
-              <TextBlock Text="Pick or add one target workspace" FontSize="20" FontWeight="SemiBold"/>
-              <TextBlock Text="Customer-wide values are saved here so they are not re-entered for every export." Margin="0,6,0,12"/>
-            </StackPanel>
-            <DataGrid Name="WorkspaceGrid" Grid.Row="1" AutoGenerateColumns="False" SelectionMode="Single" IsReadOnly="True">
-              <DataGrid.Columns>
-                <DataGridTextColumn Header="Workspace" Binding="{Binding displayName}" Width="190"/>
-                <DataGridTextColumn Header="Tenant" Binding="{Binding tenantId}" Width="220"/>
-                <DataGridTextColumn Header="Subscription" Binding="{Binding subscriptionId}" Width="220"/>
-                <DataGridTextColumn Header="Resource group" Binding="{Binding resourceGroupName}" Width="170"/>
-                <DataGridTextColumn Header="Runtime identity" Binding="{Binding defaultLogicAppRuntimeIdentity.type}" Width="130"/>
+                <DataGridTextColumn Header="Path" Binding="{Binding path}" Width="220"/>
+                <DataGridTextColumn Header="Value" Binding="{Binding value}" Width="240"/>
+                <DataGridTextColumn Header="Kind" Binding="{Binding kind}" Width="90"/>
+                <DataGridTextColumn Header="Decision" Binding="{Binding decision}" Width="100"/>
+                <DataGridTextColumn Header="Replacement name" Binding="{Binding replacementName}" Width="170"/>
               </DataGrid.Columns>
             </DataGrid>
             <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-              <Button Name="AddWorkspaceButton" Content="Add workspace" Width="120" Margin="0,0,6,0"/>
-              <Button Name="EditWorkspaceButton" Content="Edit selected" Width="110"/>
+              <Button Name="MarkReplaceButton" Content="Replace" Width="90" Margin="0,0,6,0"/>
+              <Button Name="MarkPreserveButton" Content="Preserve" Width="90" Margin="0,0,6,0"/>
+              <Button Name="MarkSecretButton" Content="Secret" Width="90"/>
             </StackPanel>
           </Grid>
         </TabItem>
-
-        <TabItem Header="4 Values">
+        <TabItem Header="3 Template">
           <Grid Margin="12">
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto"/>
-              <RowDefinition Height="Auto"/>
-              <RowDefinition Height="*"/>
-              <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-            <TextBlock Text="Enter one missing value" FontSize="20" FontWeight="SemiBold"/>
-            <TextBlock Grid.Row="1" Name="ValueGuideText" Text="The guide shows where to get the current value. Saved workspace values are skipped." Margin="0,6,0,12"/>
-            <Grid Grid.Row="2">
-              <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-              </Grid.RowDefinitions>
-              <TextBlock Name="CurrentValueLabel" Text="Value name" FontWeight="SemiBold"/>
-              <TextBox Name="CurrentValueText" Grid.Row="1" Height="30" Margin="0,6,0,10"/>
-              <TextBox Name="MissingValuesText" Grid.Row="2" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" IsReadOnly="True"/>
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <TextBlock Text="Save reusable template" FontSize="20" FontWeight="SemiBold"/>
+            <Grid Grid.Row="1" Margin="0,12,0,12">
+              <Grid.ColumnDefinitions><ColumnDefinition Width="120"/><ColumnDefinition Width="*"/><ColumnDefinition Width="110"/></Grid.ColumnDefinitions>
+              <TextBlock Text="Template name" VerticalAlignment="Center"/>
+              <TextBox Name="TemplateNameText" Grid.Column="1" Height="30" Margin="0,0,8,0"/>
+              <Button Name="SaveTemplateButton" Grid.Column="2" Content="Save"/>
             </Grid>
-            <Button Name="SaveBindingButton" Grid.Row="3" Content="Save value and continue" Width="160" HorizontalAlignment="Right" Margin="0,10,0,0"/>
+            <DataGrid Name="TemplateGrid" Grid.Row="2" AutoGenerateColumns="False" SelectionMode="Single" IsReadOnly="True">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Template" Binding="{Binding name}" Width="230"/>
+                <DataGridTextColumn Header="Purpose" Binding="{Binding purpose}" Width="360"/>
+                <DataGridTextColumn Header="Saved" Binding="{Binding savedAt}" Width="180"/>
+              </DataGrid.Columns>
+            </DataGrid>
+            <TextBlock Grid.Row="3" Text="The template just saved is selected automatically." Margin="0,10,0,0"/>
           </Grid>
         </TabItem>
-
-        <TabItem Header="5 Export">
+        <TabItem Header="4 Workspace">
           <Grid Margin="12">
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto"/>
-              <RowDefinition Height="Auto"/>
-              <RowDefinition Height="*"/>
-              <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-            <TextBlock Text="Export code-view JSON" FontSize="20" FontWeight="SemiBold"/>
-            <TextBlock Grid.Row="1" Text="Review the selected template, workspace and saved values. Export writes codeview.json only." Margin="0,6,0,12"/>
-            <TextBox Name="ValidationSummaryText" Grid.Row="2" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" IsReadOnly="True"/>
-            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-              <TextBox Name="OutputFolderText" Width="420" Margin="0,0,8,0"/>
-              <Button Name="GeneratePackageButton" Content="Export code view" Width="140" Margin="0,0,6,0"/>
-              <Button Name="OpenOutputButton" Content="Open folder" Width="100"/>
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <TextBlock Text="Pick or add target workspace values" FontSize="20" FontWeight="SemiBold"/>
+            <Grid Grid.Row="1" Margin="0,12,0,12">
+              <Grid.ColumnDefinitions><ColumnDefinition Width="130"/><ColumnDefinition Width="*"/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions>
+              <TextBlock Text="Workspace name" VerticalAlignment="Center"/>
+              <TextBox Name="WorkspaceNameText" Grid.Column="1" Height="30" Margin="0,0,8,0"/>
+              <Button Name="SaveWorkspaceButton" Grid.Column="2" Content="Save profile"/>
+            </Grid>
+            <DataGrid Name="WorkspaceGrid" Grid.Row="2" AutoGenerateColumns="False" SelectionMode="Single" IsReadOnly="True">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Workspace" Binding="{Binding displayName}" Width="220"/>
+                <DataGridTextColumn Header="Saved" Binding="{Binding savedAt}" Width="180"/>
+              </DataGrid.Columns>
+            </DataGrid>
+            <StackPanel Grid.Row="3" Margin="0,10,0,0">
+              <TextBlock Text="Enter one reusable workspace value at a time, then save the profile."/>
+              <DockPanel Margin="0,6,0,0">
+                <TextBox Name="WorkspaceValueNameText" Width="210" Margin="0,0,6,0" ToolTip="Value name, e.g. tenantId"/>
+                <TextBox Name="WorkspaceValueText" Width="360" Margin="0,0,6,0" ToolTip="Value"/>
+                <Button Name="AddWorkspaceValueButton" Content="Add value" Width="95"/>
+              </DockPanel>
+              <TextBox Name="WorkspaceValuesPreviewText" Height="70" AcceptsReturn="True" IsReadOnly="True" Margin="0,6,0,0"/>
             </StackPanel>
           </Grid>
         </TabItem>
-
+        <TabItem Header="5 Generate">
+          <Grid Margin="12">
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <TextBlock Text="Generate target code-view JSON" FontSize="20" FontWeight="SemiBold"/>
+            <TextBox Name="GeneratedCodeViewText" Grid.Row="1" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" IsReadOnly="True" Margin="0,12,0,0"/>
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+              <Button Name="GenerateButton" Content="Generate" Width="110" Margin="0,0,6,0"/>
+              <Button Name="CopyButton" Content="Copy JSON" Width="110"/>
+            </StackPanel>
+          </Grid>
+        </TabItem>
         <TabItem Header="Activity">
           <TextBox Name="ActivityLog" Margin="12" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" IsReadOnly="True"/>
         </TabItem>
