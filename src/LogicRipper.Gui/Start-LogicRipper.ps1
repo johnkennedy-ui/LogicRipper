@@ -56,9 +56,20 @@ function Mark-Selected([string]$Decision) {
     try {
         $script:Analysis = Invoke-LogicRipperAnalysis -CodeViewJson $codeViewText.Text
         $findingsGrid.ItemsSource = @($script:Analysis.findings)
-        $tabs.SelectedIndex = 1
+        $tabs.SelectedIndex = 2
         Say "Analysis complete: $(@($script:Analysis.findings).Count) values need review"
     } catch { Say "Analyse failed: $($_.Exception.Message)" }
+})
+
+(C StartImportButton).Add_Click({
+    $tabs.SelectedIndex = 1
+    Say 'Import mode: paste code-view JSON and click Analyse'
+})
+
+(C StartExportButton).Add_Click({
+    Refresh-Lists
+    $tabs.SelectedIndex = 3
+    Say 'Export mode: select a saved template, then select or add a workspace'
 })
 
 (C MarkReplaceButton).Add_Click({ Mark-Selected replace })
@@ -96,7 +107,7 @@ function Mark-Selected([string]$Decision) {
         $saved = New-LogicRipperTargetWorkspace -DisplayName $name -Values $script:WorkspaceValues -BasePath $BasePath
         Refresh-Lists
         foreach ($item in $workspaceGrid.ItemsSource) { if ($item.profileId -eq $saved.profileId) { $workspaceGrid.SelectedItem = $item; break } }
-        $tabs.SelectedIndex = 4
+        $tabs.SelectedIndex = 5
         Say "Workspace saved: $($saved.displayName)"
     } catch { Say "Workspace save failed: $($_.Exception.Message)" }
 })

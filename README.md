@@ -15,16 +15,27 @@ validate live Azure resources.
 
 ## Supported MVP Workflow
 
+On startup the user chooses one of two paths:
+
+- `Import new template`
+- `Export saved template`
+
+Import path:
+
 1. Paste a Logic App code-view JSON into the GUI.
 2. Click `Analyse`.
 3. Review detected customer/source-specific values.
 4. Mark each detected value as `replace`, `preserve`, or `secret / do not export`.
 5. Save the reviewed JSON as a named reusable local template.
-6. Create or select a saved Target Workspace profile.
-7. Enter missing template/workspace values one at a time.
-8. Click `Generate`.
-9. Copy the generated `codeview.json` from the GUI.
-10. Paste it manually into the target Logic App code view.
+
+Export path:
+
+1. Select a saved template.
+2. Select or create a saved Target Workspace profile.
+3. Enter missing values one at a time.
+4. Click `Generate`.
+5. Copy the generated `codeview.json` from the GUI.
+6. Paste it manually into the target Logic App code view.
 
 The example template is `Disable User Accounts`, a Sentinel incident response
 playbook that disables one or more Entra user accounts.
