@@ -9,54 +9,54 @@ bash ./scripts/install-ubuntu.sh
 ~/.local/bin/logic-ripper status
 ```
 
-Logic Ripper is a strictly local Logic App code-view transformer. It does not
-connect to cloud APIs, discover resources, deploy anything, create ARM/Bicep,
-run what-if, or validate live resources.
+LogicRipper is an offline local code-view transformer. It does not authenticate
+to Azure, Microsoft Graph, Defender, Intune or any customer environment. It
+does not connect to any API.
+
+All target values are manually supplied and stored locally. Generated code view
+must be reviewed and manually pasted into the target Logic App by the operator.
 
 ## Supported MVP Workflow
 
-On startup the user chooses one of two paths:
+On startup the GUI offers two paths:
 
 - `Import new template`
 - `Export saved template`
 
 Import path:
 
-1. Paste a Logic App code-view JSON into the GUI.
-2. Click `Analyse`.
-3. Review detected customer/source-specific values.
-4. Mark each detected value as `replace`, `preserve`, or `secret / do not export`.
-5. Save the reviewed JSON as a named reusable local template.
+1. `Paste code view`
+2. `Analyse local JSON`
+3. Mark detected local JSON values as `replace`, `preserve`, or `secret / do not export`.
+4. `Save local template`
 
 Export path:
 
-1. Select a saved template.
-2. Select or create a saved Target Workspace profile.
-3. Enter workspace or template-specific binding values one at a time.
-4. Save the binding for that template and workspace.
-5. Click `Generate`.
-6. Confirm the generated code-view JSON has no unresolved placeholders or source values.
-7. Copy the generated `codeview.json` from the GUI.
-8. Paste it manually into the target Logic App code view.
+1. Select one saved local template.
+2. Select or create `Target workspace variables`.
+3. Enter `Binding values` for that template and workspace.
+4. Save the binding.
+5. `Generate code view`
+6. `Copy generated JSON`
+7. Manually paste the generated JSON into the target Logic App code view.
 
-Accepted input forms:
+Accepted local input forms:
 
 - Pure Logic App code-view JSON with `$schema`, `contentVersion`, `parameters`,
   `triggers`, `actions`, and optional `outputs`.
-- A full `Microsoft.Logic/workflows` resource JSON, normalised down to code view.
+- A full `Microsoft.Logic/workflows` JSON document, normalised down to local code view.
 - A saved Logic Ripper template.
 
-Local validation is code-view only:
+Local validation only checks:
 
 - JSON parses.
-- `triggers` and `actions` exist.
+- `triggers` exists.
+- `actions` exists.
 - Source values marked `replace` do not remain after generation.
-- `{{placeholders}}` are resolved.
+- `{{tokens}}` are resolved.
 - Probable secrets are not exported.
-- `$connections` values are mapped, or explicitly marked `Manual edit required`.
-
-The example template is `Disable User Accounts`, a Sentinel incident response
-playbook that disables one or more Entra user accounts.
+- `$connections` connector reference values are supplied or explicitly marked
+  `Manual edit required`.
 
 ## GUI
 
@@ -67,7 +67,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\src\LogicRipper.Gui\Start-LogicR
 ```
 
 The Ubuntu install command is included so a VM can install PowerShell and run
-tests/status checks, but the product UX is the GUI.
+tests/status checks. The product workflow is the GUI.
 
 ## Tests
 
@@ -81,14 +81,24 @@ or:
 .\build.ps1 -Test
 ```
 
+## Limitations
+
+- Does not verify target IDs.
+- Does not create connectors.
+- Does not authorise OAuth connectors.
+- Does not deploy.
+- Does not check permissions.
+- Does not guarantee the workflow will run.
+- Only guarantees local JSON transformation and configured source-value replacement.
+
 ## Out Of Scope
 
-- live source discovery
-- live login
-- subscription/resource-group browsing
-- Logic App export from a live service
-- direct deployment
-- ARM/Bicep output
-- what-if
-- live value/resource validation
-- broad connector automation
+- Any live API call.
+- Cloud authentication.
+- Live source discovery.
+- Live target/resource validation.
+- Connector creation.
+- Connector authorisation.
+- Direct deployment.
+- ARM/Bicep output.
+- What-if.

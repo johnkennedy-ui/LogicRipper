@@ -1,6 +1,18 @@
 $ErrorActionPreference = 'Stop'
 
 Describe 'LogicRipper offline-only production boundary' {
+    It 'does not require cloud PowerShell modules' {
+        $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..' '..')
+        $manifestPath = Join-Path $repoRoot 'src/LogicRipper/LogicRipper.psd1'
+        $manifest = Import-PowerShellDataFile -LiteralPath $manifestPath
+        $required = @()
+        if ($manifest.ContainsKey('RequiredModules')) { $required += @($manifest.RequiredModules) }
+        if ($manifest.ContainsKey('NestedModules')) { $required += @($manifest.NestedModules) }
+
+        $requiredText = ($required | ConvertTo-Json -Depth 10)
+        $requiredText | Should -Not -Match '(^|[^A-Za-z0-9.])(Az|Microsoft\.Graph|ExchangeOnlineManagement)([^A-Za-z0-9.]|$)'
+    }
+
     It 'does not contain banned live API commands in production code' {
         $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..' '..')
         $productionRoots = @(

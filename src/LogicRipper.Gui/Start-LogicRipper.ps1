@@ -66,12 +66,12 @@ function Mark-Selected([string]$Decision) {
         $findingsGrid.ItemsSource = @($script:Analysis.findings)
         $tabs.SelectedIndex = 2
         Say "Analysis complete: $(@($script:Analysis.findings).Count) values need review"
-    } catch { Say "Analyse failed: $($_.Exception.Message)" }
+    } catch { Say "Analyse local JSON failed: $($_.Exception.Message)" }
 })
 
 (C StartImportButton).Add_Click({
     $tabs.SelectedIndex = 1
-    Say 'Import mode: paste code-view JSON and click Analyse'
+    Say 'Import mode: paste code view and click Analyse local JSON'
 })
 
 (C StartExportButton).Add_Click({
@@ -86,7 +86,7 @@ function Mark-Selected([string]$Decision) {
 
 (C SaveTemplateButton).Add_Click({
     try {
-        if (-not $script:Analysis) { throw 'Analyse JSON first.' }
+        if (-not $script:Analysis) { throw 'Analyse local JSON first.' }
         if ([string]::IsNullOrWhiteSpace($templateNameText.Text)) { throw 'Template name is required.' }
         $saved = Save-LogicRipperTemplate -Name $templateNameText.Text -Analysis $script:Analysis -BasePath $BasePath
         $script:TemplateId = $saved.templateId
@@ -182,14 +182,14 @@ function Mark-Selected([string]$Decision) {
         $generated = New-LogicRipperCodeView -TemplateId $template.templateId -ProfileId $workspace.profileId -BindingId $binding.bindingId -BasePath $BasePath
         $script:LastOutputPath = $generated.path
         $generatedText.Text = Get-Content -Raw -LiteralPath $generated.path
-        Say "Generated code-view JSON"
+        Say "Generated code view"
     } catch { Say "Generate failed: $($_.Exception.Message)" }
 })
 
 (C CopyButton).Add_Click({ [Windows.Clipboard]::SetText($generatedText.Text); Say 'Copied generated JSON' })
 (C OpenOutputButton).Add_Click({
     try {
-        if (-not $script:LastOutputPath) { throw 'Generate code-view JSON first.' }
+        if (-not $script:LastOutputPath) { throw 'Generate code view first.' }
         Start-Process -FilePath (Split-Path -Parent $script:LastOutputPath)
         Say 'Opened output folder'
     } catch { Say "Open folder failed: $($_.Exception.Message)" }
