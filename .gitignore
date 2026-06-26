@@ -1,2 +1,6 @@
 artifacts/
 testResults.xml
+.install/
+.dotnet-home/
+**/bin/
+**/obj/

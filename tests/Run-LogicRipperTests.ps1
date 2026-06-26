@@ -2,6 +2,10 @@
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
+if (-not $env:DOTNET_CLI_HOME) {
+    $env:DOTNET_CLI_HOME = Join-Path ([IO.Path]::GetTempPath()) 'logic-ripper-dotnet-home'
+    New-Item -ItemType Directory -Path $env:DOTNET_CLI_HOME -Force | Out-Null
+}
 Import-Module (Join-Path $repoRoot 'src/LogicRipper/LogicRipper.psd1') -Force
 
 $script:Passed = 0
@@ -81,7 +85,7 @@ Invoke-Test 'production code has no banned live API commands' {
     $productionFiles = foreach ($root in $productionRoots) {
         if (Test-Path -LiteralPath $root) {
             Get-ChildItem -LiteralPath $root -Recurse -File |
-                Where-Object { $_.Extension -in @('.ps1','.psm1','.psd1','.xaml','.sh') }
+                Where-Object { $_.Extension -in @('.ps1','.psm1','.psd1','.xaml','.axaml','.sh','.cs','.csproj') }
         }
     }
     $productionFiles += Get-Item -LiteralPath (Join-Path $repoRoot 'build.ps1')
@@ -117,6 +121,67 @@ Invoke-Test 'analyses pasted code-view JSON and detects customer-specific values
     Assert-Equal $analysis.status 'Needs review' 'Analysis status mismatch.'
     Assert-Contains $analysis.findings.kind 'email' 'Expected email finding.'
     Assert-Contains $analysis.findings.kind 'azureResourceId' 'Expected resource ID finding.'
+}
+
+Invoke-Test 'Avalonia source tree is covered by the offline-only guard' {
+    $avaloniaRoot = Join-Path $repoRoot 'src/LogicRipper.Gui.Avalonia'
+    Assert-True (Test-Path -LiteralPath $avaloniaRoot) 'Avalonia GUI source tree is missing.'
+    $guardText = Get-Content -Raw -LiteralPath $PSCommandPath
+    Assert-Match $guardText '\.axaml' 'Offline guard must scan Avalonia AXAML files.'
+    Assert-Match $guardText '\.cs' 'Offline guard must scan Avalonia C# files.'
+    Assert-Match $guardText '\.csproj' 'Offline guard must scan Avalonia project files.'
+}
+
+Invoke-Test 'Avalonia project builds on Ubuntu when dotnet SDK is available' {
+    Assert-True ($null -ne (Get-Command dotnet -ErrorAction SilentlyContinue)) 'dotnet SDK is required for the Avalonia build test.'
+    & dotnet build (Join-Path $repoRoot 'src/LogicRipper.Gui.Avalonia/LogicRipper.Gui.Avalonia.csproj') -c Release
+    Assert-Equal $LASTEXITCODE 0 'dotnet build failed.'
+}
+
+Invoke-Test 'Linux GUI publish succeeds and version command runs' {
+    Assert-True ($null -ne (Get-Command dotnet -ErrorAction SilentlyContinue)) 'dotnet SDK is required for the Linux publish test.'
+    & bash (Join-Path $repoRoot 'scripts/build-ubuntu-gui.sh')
+    Assert-Equal $LASTEXITCODE 0 'Linux GUI publish failed.'
+    $gui = Join-Path $repoRoot 'artifacts/LogicRipper.Gui-linux-x64/LogicRipper.Gui'
+    Assert-True (Test-Path -LiteralPath $gui) 'Published GUI binary missing.'
+    $version = & $gui --version
+    Assert-Equal $LASTEXITCODE 0 'logic-ripper-gui --version failed.'
+    Assert-Match ($version -join "`n") 'LogicRipper\.Gui' 'Version output mismatch.'
+}
+
+Invoke-Test 'GUI backend command bridge can analyse save load and generate fixture code view' {
+    Assert-True ($null -ne (Get-Command dotnet -ErrorAction SilentlyContinue)) 'dotnet SDK is required for the GUI backend bridge test.'
+    $pwshPath = Join-Path $PSHOME 'pwsh'
+    Assert-True (Test-Path -LiteralPath $pwshPath) 'PowerShell is required for the GUI backend bridge test.'
+    $gui = Join-Path $repoRoot 'artifacts/LogicRipper.Gui-linux-x64/LogicRipper.Gui'
+    if (-not (Test-Path -LiteralPath $gui)) { & bash (Join-Path $repoRoot 'scripts/build-ubuntu-gui.sh') }
+    $base = New-TestBase
+    $old = $env:LOGIC_RIPPER_CLI
+    if ($old) {
+        $wrapper = $old
+    } else {
+        New-Item -ItemType Directory -Path $base -Force | Out-Null
+        $wrapper = Join-Path $base 'logic-ripper'
+        $cli = [string](Join-Path $repoRoot 'src/LogicRipper.Cli/Start-LogicRipperCli.ps1')
+        Set-Content -LiteralPath $wrapper -Encoding utf8 -Value @(
+            '#!/usr/bin/env bash',
+            'set -euo pipefail',
+            ('exec "{0}" -NoLogo -NoProfile -File "{1}" "$@"' -f $pwshPath, $cli)
+        )
+        & chmod 755 $wrapper
+    }
+    try {
+        $env:LOGIC_RIPPER_CLI = $wrapper
+        & $gui --bridge-smoke --fixture (Join-Path $repoRoot 'tests/Fixtures/disable-user-accounts.workflow.json') --base-path $base
+        Assert-Equal $LASTEXITCODE 0 'GUI backend bridge smoke failed.'
+        Assert-True (@(Get-ChildItem -LiteralPath (Join-Path $base 'Templates') -Filter '*.json').Count -gt 0) 'Bridge did not save/load template data.'
+        Assert-True (@(Get-ChildItem -LiteralPath (Join-Path $base 'Workspaces') -Filter '*.json').Count -gt 0) 'Bridge did not save/load workspace data.'
+        Assert-True (@(Get-ChildItem -LiteralPath (Join-Path $base 'Bindings') -Filter '*.json').Count -gt 0) 'Bridge did not save/load binding data.'
+        Assert-True (@(Get-ChildItem -LiteralPath (Join-Path $base 'Generated') -Filter 'codeview.json' -Recurse).Count -gt 0) 'Bridge did not generate code view.'
+    } finally {
+        $env:LOGIC_RIPPER_CLI = $old
+        if (Test-Path $base) { Remove-Item $base -Recurse -Force }
+    }
 }
 
 Invoke-Test 'blocks template save until every finding is reviewed' {

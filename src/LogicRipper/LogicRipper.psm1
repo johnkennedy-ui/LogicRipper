@@ -1,7 +1,7 @@
 Set-StrictMode -Version Latest
 
 $script:SchemaVersion = '3.0'
-$script:AllowedDecisions = @('replace','preserve','secret')
+$script:AllowedDecisions = @('replace','preserve','secret','reviewrequired')
 $script:KnownStableMicrosoftGuids = @(
     '00000003-0000-0000-c000-000000000000',
     '797f4846-ba00-4fd7-ba43-dac1f8f63013',
@@ -275,7 +275,7 @@ function Set-LogicRipperFindingDecision {
     param(
         [Parameter(Mandatory)][object]$Analysis,
         [Parameter(Mandatory)][string]$FindingId,
-        [Parameter(Mandatory)][ValidateSet('replace','preserve','secret')][string]$Decision,
+        [Parameter(Mandatory)][ValidateSet('replace','preserve','secret','reviewrequired')][string]$Decision,
         [string]$ReplacementName
     )
     $finding = $Analysis.findings | Where-Object id -eq $FindingId | Select-Object -First 1
@@ -340,6 +340,15 @@ function Rename-LogicRipperTemplate {
     [pscustomobject]@{ status = 'Renamed'; templateId = $TemplateId; name = $Name }
 }
 
+function Remove-LogicRipperTemplate {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$TemplateId, [string]$BasePath)
+    $path = Join-Path (Get-LogicRipperPath -Kind Templates -BasePath $BasePath) "$TemplateId.json"
+    if (-not (Test-Path -LiteralPath $path)) { throw "Template not found: $TemplateId" }
+    Remove-Item -LiteralPath $path -Force
+    [pscustomobject]@{ status = 'Deleted'; templateId = $TemplateId }
+}
+
 function Assert-NoRawSecret {
     param([string]$Json, [string]$Message)
     if ($Json -match '(?i)(client[_-]?secret|password|AccountKey=|SharedAccessSignature|Bearer\s+|sv=\d{4}-\d{2}-\d{2}&.*\bsig=)') { throw $Message }
@@ -360,6 +369,22 @@ function New-LogicRipperTargetWorkspace {
     [pscustomobject]@{ profileId = $profileId; path = $path; displayName = $DisplayName }
 }
 
+function Save-LogicRipperTargetWorkspace {
+    [CmdletBinding()]
+    param(
+        [string]$BasePath,
+        [string]$ProfileId,
+        [Parameter(Mandatory)][string]$DisplayName,
+        [Parameter(Mandatory)][hashtable]$Values
+    )
+    Assert-NoRawSecret -Json (ConvertTo-StableJson $Values) -Message 'Workspace profiles cannot store raw secrets.'
+    if (-not $ProfileId) { $ProfileId = Get-StableId $DisplayName }
+    $profile = [ordered]@{ schemaVersion = $script:SchemaVersion; profileId = $ProfileId; displayName = $DisplayName; values = $Values; savedAt = (Get-Date).ToUniversalTime().ToString('o') }
+    $path = Join-Path (Get-LogicRipperPath -Kind Workspaces -BasePath $BasePath) "$ProfileId.json"
+    Write-AtomicJson -Path $path -InputObject $profile
+    [pscustomobject]@{ profileId = $ProfileId; path = $path; displayName = $DisplayName }
+}
+
 function Get-LogicRipperTargetWorkspace {
     [CmdletBinding()]
     param([string]$ProfileId, [string]$BasePath)
@@ -367,6 +392,26 @@ function Get-LogicRipperTargetWorkspace {
     if (-not (Test-Path -LiteralPath $root)) { return @() }
     $files = if ($ProfileId) { @(Join-Path $root "$ProfileId.json") } else { @(Get-ChildItem -LiteralPath $root -Filter '*.json' | Select-Object -ExpandProperty FullName) }
     foreach ($file in $files) { if (Test-Path -LiteralPath $file) { ConvertFrom-JsonFile $file } }
+}
+
+function Remove-LogicRipperTargetWorkspace {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$ProfileId, [string]$BasePath)
+    $path = Join-Path (Get-LogicRipperPath -Kind Workspaces -BasePath $BasePath) "$ProfileId.json"
+    if (-not (Test-Path -LiteralPath $path)) { throw "Workspace not found: $ProfileId" }
+    Remove-Item -LiteralPath $path -Force
+    [pscustomobject]@{ status = 'Deleted'; profileId = $ProfileId }
+}
+
+function Copy-LogicRipperTargetWorkspace {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$ProfileId, [string]$DisplayName, [string]$BasePath)
+    $source = Get-LogicRipperTargetWorkspace -ProfileId $ProfileId -BasePath $BasePath
+    if (-not $source) { throw "Workspace not found: $ProfileId" }
+    if (-not $DisplayName) { $DisplayName = "$($source.displayName) Copy" }
+    $values = @{}
+    foreach ($p in $source.values.PSObject.Properties) { $values[$p.Name] = $p.Value }
+    New-LogicRipperTargetWorkspace -BasePath $BasePath -DisplayName $DisplayName -Values $values
 }
 
 function New-LogicRipperBinding {
@@ -385,6 +430,23 @@ function New-LogicRipperBinding {
     [pscustomobject]@{ bindingId = $bindingId; path = $path }
 }
 
+function Save-LogicRipperBinding {
+    [CmdletBinding()]
+    param(
+        [string]$BasePath,
+        [string]$BindingId,
+        [Parameter(Mandatory)][string]$TemplateId,
+        [Parameter(Mandatory)][string]$ProfileId,
+        [Parameter(Mandatory)][hashtable]$Values
+    )
+    Assert-NoRawSecret -Json (ConvertTo-StableJson $Values) -Message 'Bindings cannot store raw secrets.'
+    if (-not $BindingId) { $BindingId = Get-StableId "$TemplateId|$ProfileId" }
+    $binding = [ordered]@{ schemaVersion = $script:SchemaVersion; bindingId = $BindingId; templateId = $TemplateId; profileId = $ProfileId; values = $Values; savedAt = (Get-Date).ToUniversalTime().ToString('o') }
+    $path = Join-Path (Get-LogicRipperPath -Kind Bindings -BasePath $BasePath) "$BindingId.json"
+    Write-AtomicJson -Path $path -InputObject $binding
+    [pscustomobject]@{ bindingId = $BindingId; path = $path }
+}
+
 function Get-LogicRipperBinding {
     [CmdletBinding()]
     param([string]$BindingId, [string]$TemplateId, [string]$ProfileId, [string]$BasePath)
@@ -395,6 +457,15 @@ function Get-LogicRipperBinding {
     if ($TemplateId) { $items = $items | Where-Object templateId -eq $TemplateId }
     if ($ProfileId) { $items = $items | Where-Object profileId -eq $ProfileId }
     $items
+}
+
+function Remove-LogicRipperBinding {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$BindingId, [string]$BasePath)
+    $path = Join-Path (Get-LogicRipperPath -Kind Bindings -BasePath $BasePath) "$BindingId.json"
+    if (-not (Test-Path -LiteralPath $path)) { throw "Binding not found: $BindingId" }
+    Remove-Item -LiteralPath $path -Force
+    [pscustomobject]@{ status = 'Deleted'; bindingId = $BindingId }
 }
 
 function Resolve-ReplacementValue {
@@ -534,6 +605,9 @@ function New-LogicRipperCodeView {
     foreach ($finding in @($template.findings | Where-Object decision -eq 'secret')) {
         throw "Needs review: secret / do not export finding remains at $($finding.path)"
     }
+    foreach ($finding in @($template.findings | Where-Object decision -eq 'reviewrequired')) {
+        throw "Needs review: review required finding remains at $($finding.path)"
+    }
     foreach ($finding in @($template.findings | Where-Object decision -eq 'replace')) {
         $value = Resolve-ReplacementValue -Name $finding.replacementName -Workspace $workspace -Binding $binding
         if ($null -eq $value) { throw "Needs review: missing value for $($finding.replacementName)" }
@@ -563,4 +637,4 @@ function Get-LogicRipperValueGuide {
     )
 }
 
-Export-ModuleMember -Function Get-LogicRipperPath,Get-LogicRipperCanonicalCodeView,Invoke-LogicRipperAnalysis,Set-LogicRipperFindingDecision,Save-LogicRipperTemplate,Get-LogicRipperTemplate,Rename-LogicRipperTemplate,New-LogicRipperTargetWorkspace,Get-LogicRipperTargetWorkspace,New-LogicRipperBinding,Get-LogicRipperBinding,New-LogicRipperCodeView,Test-LogicRipperCodeView,Get-LogicRipperValueGuide
+Export-ModuleMember -Function Get-LogicRipperPath,Get-LogicRipperCanonicalCodeView,Invoke-LogicRipperAnalysis,Set-LogicRipperFindingDecision,Save-LogicRipperTemplate,Get-LogicRipperTemplate,Rename-LogicRipperTemplate,Remove-LogicRipperTemplate,New-LogicRipperTargetWorkspace,Save-LogicRipperTargetWorkspace,Get-LogicRipperTargetWorkspace,Remove-LogicRipperTargetWorkspace,Copy-LogicRipperTargetWorkspace,New-LogicRipperBinding,Save-LogicRipperBinding,Get-LogicRipperBinding,Remove-LogicRipperBinding,New-LogicRipperCodeView,Test-LogicRipperCodeView,Get-LogicRipperValueGuide

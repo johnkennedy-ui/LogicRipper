@@ -1,0 +1,149 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="LogicRipper.Gui.Avalonia.MainWindow"
+        Title="LogicRipper" Width="1180" Height="760" MinWidth="980" MinHeight="640">
+  <DockPanel>
+    <Border DockPanel.Dock="Bottom" BorderBrush="#cbd5e1" BorderThickness="1,1,0,0" Padding="10,6">
+      <TextBlock Name="StatusText" Text="Ready" />
+    </Border>
+    <TabControl Name="Tabs" Margin="10">
+      <TabItem Header="Paste Code View">
+        <Grid RowDefinitions="Auto,*,Auto" Margin="8">
+          <DockPanel Margin="0,0,0,8">
+            <Button Name="LoadJsonButton" Content="Load JSON file" Width="130" Margin="0,0,6,0"/>
+            <Button Name="AnalyseButton" Content="Analyse" Width="95" Margin="0,0,6,0"/>
+            <Button Name="ClearButton" Content="Clear" Width="80"/>
+          </DockPanel>
+          <TextBox Name="CodeViewText" Grid.Row="1" AcceptsReturn="True" TextWrapping="NoWrap"
+                   ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto" FontFamily="Consolas"/>
+          <TextBlock Grid.Row="2" Margin="0,8,0,0" Text="Local JSON only. No Azure, Graph, Defender, Intune, or cloud API calls are made."/>
+        </Grid>
+      </TabItem>
+      <TabItem Header="Review Values">
+        <Grid RowDefinitions="*,Auto" Margin="8">
+          <DataGrid Name="FindingsGrid" AutoGenerateColumns="False" SelectionMode="Single" IsReadOnly="True" GridLinesVisibility="Horizontal">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="JSON path" Binding="{Binding Path}" Width="260"/>
+              <DataGridTextColumn Header="Value preview" Binding="{Binding ValuePreview}" Width="220"/>
+              <DataGridTextColumn Header="Detected type" Binding="{Binding DetectedType}" Width="130"/>
+              <DataGridTextColumn Header="Recommended action" Binding="{Binding RecommendedAction}" Width="150"/>
+              <DataGridTextColumn Header="Selected action" Binding="{Binding SelectedAction}" Width="140"/>
+              <DataGridTextColumn Header="Replacement key" Binding="{Binding ReplacementKey}" Width="170"/>
+              <DataGridTextColumn Header="Required/missing" Binding="{Binding RequiredStatus}" Width="150"/>
+            </DataGrid.Columns>
+          </DataGrid>
+          <DockPanel Grid.Row="1" Margin="0,8,0,0">
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+              <Button Name="MarkReplaceButton" Content="Replace" Width="90" Margin="0,0,6,0"/>
+              <Button Name="MarkPreserveButton" Content="Preserve" Width="90" Margin="0,0,6,0"/>
+              <Button Name="MarkSecretButton" Content="Secret" Width="90" Margin="0,0,6,0"/>
+              <Button Name="MarkReviewButton" Content="ReviewRequired" Width="125"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+              <TextBox Name="TemplateNameText" Width="260" Watermark="Template name" Margin="0,0,6,0"/>
+              <Button Name="SaveTemplateButton" Content="Save as template" Width="130"/>
+            </StackPanel>
+          </DockPanel>
+        </Grid>
+      </TabItem>
+      <TabItem Header="Templates">
+        <Grid RowDefinitions="Auto,*,Auto" Margin="8">
+          <DockPanel Margin="0,0,0,8">
+            <Button Name="RefreshTemplatesButton" Content="Refresh" Width="90" Margin="0,0,6,0"/>
+            <Button Name="SelectTemplateButton" Content="Select template" Width="125" Margin="0,0,6,0"/>
+            <Button Name="RenameTemplateButton" Content="Rename" Width="90" Margin="0,0,6,0"/>
+            <Button Name="DeleteTemplateButton" Content="Delete" Width="90" Margin="0,0,6,0"/>
+            <Button Name="ViewTemplateValuesButton" Content="View detected values" Width="150"/>
+          </DockPanel>
+          <DataGrid Name="TemplatesGrid" Grid.Row="1" AutoGenerateColumns="False" SelectionMode="Single" IsReadOnly="True">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Template" Binding="{Binding Name}" Width="300"/>
+              <DataGridTextColumn Header="Saved" Binding="{Binding SavedAt}" Width="240"/>
+              <DataGridTextColumn Header="Id" Binding="{Binding TemplateId}" Width="300"/>
+            </DataGrid.Columns>
+          </DataGrid>
+          <TextBox Name="TemplateValuesText" Grid.Row="2" Height="105" Margin="0,8,0,0" AcceptsReturn="True" IsReadOnly="True"/>
+        </Grid>
+      </TabItem>
+      <TabItem Header="Target Workspaces">
+        <Grid ColumnDefinitions="2*,3*" RowDefinitions="Auto,*" Margin="8">
+          <DockPanel Grid.ColumnSpan="2" Margin="0,0,0,8">
+            <Button Name="RefreshWorkspacesButton" Content="Refresh" Width="90" Margin="0,0,6,0"/>
+            <Button Name="SelectWorkspaceButton" Content="Select workspace" Width="135" Margin="0,0,6,0"/>
+            <Button Name="NewWorkspaceButton" Content="Add" Width="75" Margin="0,0,6,0"/>
+            <Button Name="EditWorkspaceButton" Content="Edit" Width="75" Margin="0,0,6,0"/>
+            <Button Name="CloneWorkspaceButton" Content="Clone" Width="80" Margin="0,0,6,0"/>
+            <Button Name="DeleteWorkspaceButton" Content="Delete" Width="80"/>
+          </DockPanel>
+          <DataGrid Name="WorkspacesGrid" Grid.Row="1" AutoGenerateColumns="False" SelectionMode="Single" IsReadOnly="True">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Display name" Binding="{Binding DisplayName}" Width="220"/>
+              <DataGridTextColumn Header="Customer" Binding="{Binding CustomerName}" Width="140"/>
+              <DataGridTextColumn Header="Environment" Binding="{Binding EnvironmentName}" Width="130"/>
+            </DataGrid.Columns>
+          </DataGrid>
+          <ScrollViewer Grid.Row="1" Grid.Column="1" Margin="10,0,0,0">
+            <StackPanel>
+              <TextBox Name="WorkspaceDisplayNameText" Watermark="displayName" Margin="0,0,0,6"/>
+              <UniformGrid Columns="2">
+                <TextBox Name="CustomerNameText" Watermark="customerName" Margin="0,0,6,6"/>
+                <TextBox Name="EnvironmentNameText" Watermark="environmentName" Margin="0,0,0,6"/>
+                <TextBox Name="TenantIdText" Watermark="tenantId" Margin="0,0,6,6"/>
+                <TextBox Name="SubscriptionIdText" Watermark="subscriptionId" Margin="0,0,0,6"/>
+                <TextBox Name="ResourceGroupNameText" Watermark="resourceGroupName" Margin="0,0,6,6"/>
+                <TextBox Name="LocationText" Watermark="location" Margin="0,0,0,6"/>
+                <TextBox Name="WorkspaceNameText" Watermark="workspaceName" Margin="0,0,6,6"/>
+                <TextBox Name="WorkspaceResourceIdText" Watermark="workspaceResourceId" Margin="0,0,0,6"/>
+                <TextBox Name="WorkspaceCustomerIdText" Watermark="workspaceCustomerId" Margin="0,0,6,6"/>
+                <TextBox Name="DefaultLogicAppResourceGroupText" Watermark="defaultLogicAppResourceGroup" Margin="0,0,0,6"/>
+                <TextBox Name="DefaultRuntimeIdentityTypeText" Watermark="defaultRuntimeIdentityType" Margin="0,0,6,6"/>
+                <TextBox Name="DefaultRuntimeIdentityResourceIdText" Watermark="defaultRuntimeIdentityResourceId" Margin="0,0,0,6"/>
+                <TextBox Name="DefaultRuntimeIdentityClientIdText" Watermark="defaultRuntimeIdentityClientId" Margin="0,0,6,6"/>
+                <TextBox Name="DefaultRuntimeIdentityPrincipalIdText" Watermark="defaultRuntimeIdentityPrincipalId" Margin="0,0,0,6"/>
+              </UniformGrid>
+              <TextBox Name="DefaultConnectionsText" Watermark="defaultConnections (key=value, one per line)" Height="70" AcceptsReturn="True" Margin="0,0,0,6"/>
+              <TextBox Name="DefaultTagsText" Watermark="defaultTags (key=value, one per line)" Height="70" AcceptsReturn="True" Margin="0,0,0,6"/>
+              <DockPanel>
+                <TextBox Name="WorkspaceExtraKeyText" Width="220" Watermark="value key" Margin="0,0,6,0"/>
+                <TextBox Name="WorkspaceExtraValueText" Width="360" Watermark="value" Margin="0,0,6,0"/>
+                <Button Name="AddWorkspaceValueButton" Content="Add/edit value" Width="120"/>
+              </DockPanel>
+              <TextBox Name="WorkspaceValuesPreviewText" Height="90" AcceptsReturn="True" IsReadOnly="True" Margin="0,6,0,6"/>
+              <Button Name="SaveWorkspaceButton" Content="Save workspace" Width="130" HorizontalAlignment="Right"/>
+            </StackPanel>
+          </ScrollViewer>
+        </Grid>
+      </TabItem>
+      <TabItem Header="Binding and Generate">
+        <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="8">
+          <TextBlock Name="SelectionSummaryText" Text="Select a template and target workspace first." Margin="0,0,0,8"/>
+          <StackPanel Grid.Row="1">
+            <TextBlock Name="MissingValuesText" Text="Missing required values: none"/>
+            <DockPanel Margin="0,8,0,0">
+              <TextBox Name="BindingKeyText" Width="240" Watermark="binding key" Margin="0,0,6,0"/>
+              <TextBox Name="BindingValueText" Width="460" Watermark="binding value" Margin="0,0,6,0"/>
+              <Button Name="AddBindingValueButton" Content="Add/edit value" Width="120" Margin="0,0,6,0"/>
+              <Button Name="SaveBindingButton" Content="Save binding" Width="110"/>
+            </DockPanel>
+            <TextBox Name="BindingPreviewText" Height="70" AcceptsReturn="True" IsReadOnly="True" Margin="0,6,0,0"/>
+          </StackPanel>
+          <TextBox Name="GeneratedJsonText" Grid.Row="2" AcceptsReturn="True" IsReadOnly="True" TextWrapping="NoWrap"
+                   ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" Margin="0,8,0,0"/>
+          <DockPanel Grid.Row="3" Margin="0,8,0,0">
+            <TextBlock Name="ValidationStatusText" Text="Validation status: not generated" VerticalAlignment="Center"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+              <Button Name="GenerateButton" Content="Generate code view" Width="140" Margin="0,0,6,0"/>
+              <Button Name="CopyGeneratedButton" Content="Copy generated JSON" Width="155" Margin="0,0,6,0"/>
+              <Button Name="SaveGeneratedButton" Content="Save JSON to file" Width="135" Margin="0,0,6,0"/>
+              <Button Name="OpenOutputButton" Content="Open output folder" Width="140"/>
+            </StackPanel>
+          </DockPanel>
+        </Grid>
+      </TabItem>
+      <TabItem Header="Activity">
+        <TextBox Name="ActivityText" Margin="8" AcceptsReturn="True" IsReadOnly="True"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</Window>

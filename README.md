@@ -1,85 +1,71 @@
-# Logic Ripper
+# LogicRipper
 
-## Run these Alex
+LogicRipper is a strictly local/offline Logic App code-view transformer and variable store. It does not authenticate to Azure, Microsoft Graph, Defender, Intune, or any customer environment, and it does not call cloud APIs.
+
+## Ubuntu GUI
 
 ```bash
 git clone https://github.com/johnkennedy-ui/LogicRipper.git
 cd LogicRipper
 bash ./scripts/install-ubuntu.sh
-~/.local/bin/logic-ripper status
+logic-ripper-gui
 ```
 
-LogicRipper is an offline local code-view transformer. It does not authenticate
-to Azure, Microsoft Graph, Defender, Intune or any customer environment. It
-does not connect to any API.
+The GUI is an Avalonia desktop app for Ubuntu. It replaces the old WPF-first GUI because WPF is Windows-only and is not suitable for the Ubuntu VM deployment target.
 
-All target values are manually supplied and stored locally. Generated code view
-must be reviewed and manually pasted into the target Logic App by the operator.
+The GUI supports the local workflow:
 
-## Supported MVP Workflow
+- paste or load Logic App code-view JSON;
+- analyse local JSON;
+- review detected values as Replace, Preserve, Secret, or ReviewRequired;
+- save reusable local templates;
+- add, edit, clone, delete, and select target workspace profiles;
+- add and edit binding values one at a time;
+- generate target code-view JSON;
+- view validation status;
+- copy generated JSON;
+- save generated JSON to a file;
+- open the local output folder.
 
-On startup the GUI offers two paths:
+## Ubuntu CLI
 
-- `Import new template`
-- `Export saved template`
-
-Import path:
-
-1. `Paste code view`
-2. `Analyse local JSON`
-3. Mark detected local JSON values as `replace`, `preserve`, or `secret / do not export`.
-4. `Save local template`
-
-Export path:
-
-1. Select one saved local template.
-2. Select or create `Target workspace variables`.
-3. Enter `Binding values` for that template and workspace.
-4. Save the binding.
-5. `Generate code view`
-6. `Copy generated JSON`
-7. Manually paste the generated JSON into the target Logic App code view.
-
-Accepted local input forms:
-
-- Pure Logic App code-view JSON with `$schema`, `contentVersion`, `parameters`,
-  `triggers`, `actions`, and optional `outputs`.
-- A full `Microsoft.Logic/workflows` JSON document, normalised down to local code view.
-- A saved Logic Ripper template.
-
-Local validation only checks:
-
-- JSON parses.
-- `triggers` exists.
-- `actions` exists.
-- Source values marked `replace` do not remain after generation.
-- `{{tokens}}` are resolved.
-- Probable secrets are not exported.
-- `$connections` connector reference values are supplied or explicitly marked
-  `Manual edit required`.
-
-## GUI
-
-The GUI is WPF and runs on Windows:
-
-```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File .\src\LogicRipper.Gui\Start-LogicRipper.ps1
+```bash
+logic-ripper status
+logic-ripper analyse -InputPath ./tests/Fixtures/disable-user-accounts.workflow.json
+logic-ripper generate -TemplateId <template-id> -TargetWorkspaceProfileId <profile-id> -BindingId <binding-id>
+logic-ripper-test
 ```
 
-The Ubuntu install command is included so a VM can install PowerShell and run
-tests/status checks. The product workflow is the GUI.
+The CLI remains the local business-logic layer used by the GUI bridge.
+
+## Build And Package
+
+```bash
+bash ./scripts/build-ubuntu-gui.sh
+./artifacts/LogicRipper.Gui-linux-x64/LogicRipper.Gui --version
+./artifacts/LogicRipper.Gui-linux-x64/LogicRipper.Gui
+```
+
+Expected artifacts:
+
+- `artifacts/LogicRipper-mvp.zip`
+- `artifacts/LogicRipper.Gui-linux-x64/`
+- `artifacts/LogicRipper.Gui-linux-x64.tar.gz`
 
 ## Tests
 
 ```bash
-~/.local/bin/logic-ripper-test
+./build.ps1 -Test -Zip
+bash ./scripts/smoke-ubuntu-gui-visible.sh
 ```
 
-or:
+The test suite includes an offline-only guard that scans production PowerShell, shell, Avalonia C#, AXAML, and project files for banned Azure, Graph, REST, web, and deployment commands.
 
-```powershell
-.\build.ps1 -Test
-```
+`scripts/smoke-ubuntu-gui-visible.sh` must be run from an Ubuntu desktop session. It fails clearly when `DISPLAY` and `WAYLAND_DISPLAY` are missing, starts `logic-ripper-gui`, checks the process stays open, uses `xdotool` when available to find the `LogicRipper` window, and captures a screenshot when `gnome-screenshot` or ImageMagick `import` is installed.
+
+## Windows
+
+Windows GUI is not the primary MVP target. The supported MVP GUI launch path is Ubuntu with Avalonia. The old WPF GUI is retained only as legacy source and should not be treated as the product launch path.
 
 ## Limitations
 
@@ -88,7 +74,7 @@ or:
 - Does not authorise OAuth connectors.
 - Does not deploy.
 - Does not check permissions.
-- Does not guarantee the workflow will run.
+- Does not run what-if or live validation.
 - Only guarantees local JSON transformation and configured source-value replacement.
 
 ## Out Of Scope
